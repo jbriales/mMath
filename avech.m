@@ -4,7 +4,7 @@ function X = avech(x)
 
 k = numel(x);
 s = -0.5 + sqrt(0.25+2*k);
-X = zeros(s);
+X = zeros(s)*x(1); % Force same type as x
 
 % Insert vector to lower triangular block
 X( tril(true(s)) ) = x;
