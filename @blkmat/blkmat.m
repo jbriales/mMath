@@ -68,7 +68,7 @@ classdef blkmat
   properties
     rsizes, csizes
     row_regular, col_regular
-    M
+    storage
   end
   
   methods   
@@ -78,7 +78,7 @@ classdef blkmat
         this.csizes = [];
         this.row_regular = 0;
         this.col_regular = 0;
-        this.M = [];
+        this.storage = [];
         
       elseif isa(nrows, 'blkmat')
         this = nrows; % identity function
@@ -101,14 +101,14 @@ classdef blkmat
         end
         
         if nargin < 5
-          this.M = zeros(sum(this.rsizes), sum(this.csizes));
+          this.storage = zeros(sum(this.rsizes), sum(this.csizes));
         else
           % Check initialization is scalar or dimensions are coherent
           assert(isscalar(M) || all(size(M)==size(this)))
           if isscalar(M)
-            this.M = M*ones(size(this));
+            this.storage = M*ones(size(this));
           else
-            this.M = M;
+            this.storage = M;
           end
         end
       end
@@ -141,7 +141,7 @@ classdef blkmat
             
             scalar_rows = blk2sub(rows, A.rsizes);
             scalar_cols = blk2sub(cols, A.csizes);
-            A.M(scalar_rows, scalar_cols) = B;
+            A.storage(scalar_rows, scalar_cols) = B;
           otherwise,
             error(['Unrecognized subscript operator ' S.type]);
         end
@@ -159,7 +159,7 @@ classdef blkmat
             if max(rows) > nrows(A) | max(cols) > ncols(A)
               error(['index ' num2str(rows) ', ' num2str(cols) ' is out of bounds']);
             end
-            B = A.M(blk2sub(rows, rowsizes(A)), blk2sub(cols, colsizes(A)));
+            B = A.storage(blk2sub(rows, rowsizes(A)), blk2sub(cols, colsizes(A)));
           otherwise,
             error(['Unrecognized subscript operator ' S.type]);
         end
@@ -210,9 +210,9 @@ classdef blkmat
       % Check consistent block dimensions
 %       assert(all(rowsizes(A)==rowsizes(B))&&all(colsizes(A)==colsizes(B)))
       % Get sum of entire content
-%       temp = A.M + B.M;
-      if isa(A,'blkmat'), M_A = A.M; else M_A = A; end
-      if isa(B,'blkmat'), M_B = B.M; else M_B = B; end
+%       temp = A.storage + B.storage;
+      if isa(A,'blkmat'), M_A = A.storage; else M_A = A; end
+      if isa(B,'blkmat'), M_B = B.storage; else M_B = B; end
       temp = M_A + M_B;
       
       % TODO: Create according to regular block-matrix or not
@@ -228,9 +228,9 @@ classdef blkmat
       % Check consistent block dimensions
 %       assert(all(rowsizes(A)==rowsizes(B))&&all(colsizes(A)==colsizes(B)))
       % Get sum of entire content
-%       temp = A.M + B.M;
-      if isa(A,'blkmat'), M_A = A.M; else M_A = A; end
-      if isa(B,'blkmat'), M_B = B.M; else M_B = B; end
+%       temp = A.storage + B.storage;
+      if isa(A,'blkmat'), M_A = A.storage; else M_A = A; end
+      if isa(B,'blkmat'), M_B = B.storage; else M_B = B; end
       temp = M_A - M_B;
       
       % TODO: Create according to regular block-matrix or not
@@ -243,13 +243,48 @@ classdef blkmat
     end
     
     function C = mtimes(A,B)
+      % C = mtimes(A,B)
+      % Blk-matrix product
+      
+      % Extract plain data
+      matA = plainmat(A);
+      matB = plainmat(B);
+      
+      % Valid cases are:
+      % - A and B blkmat, with compatible size and blksize
+      % - A or B scalar
+      assert( numel(matA)==1 || numel(matB)==1 || ...
+              (ncols(A)==nrows(B) && colsize(A)==rowsize(B)) )
+      
+      temp = matA*matB;
+      if numel(temp) == 1
+        % Scalar result, return simple number
+        C = temp;
+      else
+        % Matrix result, build the corresponding blkmat
+        if numel(matA)==1
+          nr=nrows(B); nc=ncols(B); rs=rowsize(B); cs=colsize(B);
+        elseif numel(matB)==1
+          nr=nrows(A); nc=ncols(A); rs=rowsize(A); cs=colsize(A);
+        else
+          nr=nrows(A); nc=ncols(B); rs=rowsize(A); cs=colsize(B);
+        end
+        C = blkmat(nr,nc,rs,cs,temp);
+      end
+    end
+    
+    function C = mldivide(A,B)
       % Check consistent block dimensions
       % TODO
 %       assert(all(rowsizes(A)==rowsizes(B))&&all(colsizes(A)==colsizes(B)))
       % Get sum of entire content
-      if isa(A,'blkmat'), M_A = A.M; obj=A; else M_A = A; end
-      if isa(B,'blkmat'), M_B = B.M; obj=B; else M_B = B; end
-      temp = M_A * M_B;
+      
+      assert( isa(A,'blkmat') && isa(B,'blkmat') );
+      assert( ncols(A)==nrows(B) )
+      % TODO: Assert compatible block size
+      if isa(A,'blkmat'), M_A = A.storage; obj=A; else M_A = A; end
+      if isa(B,'blkmat'), M_B = B.storage; obj=B; else M_B = B; end
+      temp = A.storage \ B.storage;
       
       % TODO: Create according to regular block-matrix or not
       if ~obj.row_regular && ~obj.col_regular
@@ -260,10 +295,9 @@ classdef blkmat
     end
     
     function At = ctranspose(A)
-      % Transpose internal values of temporary A
-      A.M = A.M';
-      % Create new object
-      At = blkmat(A);
+      % Create new transposed object
+      At = blkmat(ncols(A),nrows(A),colsize(A),rowsize(A),A.storage');
+      % TODO: Change if not regular
     end
     
     function r = rowsize(A),  r = A.rsizes(1); end
@@ -273,9 +307,19 @@ classdef blkmat
     function c = colsizes(A), c = A.csizes; end
     function c = ncols(A),    c = length(A.csizes); end
     function s = size(A)
+      % TODO: Refactor so that size counts nrows and ncols
+      % For complete size use size(A(:,:)) instead
       s = [sum(A.rsizes), sum(A.csizes)];
     end
+    function n = numel(A), n = nrows(A)*ncols(A); end
+    function s = blksize(A)
+      % NOTE: regular blkmat should be asserted externally
+      s = [rowsize(A),colsize(A)];
+    end
+    function isit = isregular(A), isit = A.row_regular && A.col_regular; end
     
+    function M = plain(this), M = this.storage; end
+        
     function E = isempty(A)
     % E = isempty(A)
     % Check for each block if all elements are zero
@@ -283,7 +327,7 @@ classdef blkmat
     E = false(nr,nc);
     for i=1:nr
       for j=1:nc
-        B = A.M(blk2sub(i,rowsizes(A)), blk2sub(j,colsizes(A)));
+        B = A.storage(blk2sub(i,rowsizes(A)), blk2sub(j,colsizes(A)));
         E(i,j) = all(all(B==0));
       end
     end
@@ -294,16 +338,16 @@ classdef blkmat
     % Display metadata for the block matrix
       if A.row_regular & A.col_regular
         s = sprintf('%dx%d %s-matrix of %dx%d blocks',...
-          nrows(A), ncols(A), class(A.M), rowsize(A), colsize(A));
+          nrows(A), ncols(A), class(A.storage), rowsize(A), colsize(A));
       elseif A.row_regular & ~A.col_regular
         s = sprintf('%dx- %s-matrix of %d x [%s] blocks',...
-          nrows(A), class(A.M), rowsize(A), num2str(colsizes(A)));
+          nrows(A), class(A.storage), rowsize(A), num2str(colsizes(A)));
       elseif ~A.row_regular & A.col_regular
         s = sprintf('-x%d %s-matrix of [%s] x %d blocks',...
-          ncols(A), class(A.M), num2str(rowsizes(A)), colsize(A));
+          ncols(A), class(A.storage), num2str(rowsizes(A)), colsize(A));
       else
         s = sprintf('-x- %s-matrix of [%s] x [%s] blocks',...
-          class(A.M), num2str(rowsizes(A)), num2str(colsizes(A)));
+          class(A.storage), num2str(rowsizes(A)), num2str(colsizes(A)));
       end
       disp(' ');
       disp([' ' inputname(1) ' = ' s ]);
@@ -313,11 +357,11 @@ classdef blkmat
     function disp(A)
       meta(A)
       % TODO: Show only if dimensions is below some threshold
-      disp(A.M)
+      disp(A.storage)
     end
     
     function spy(A)
-      spy(A.M);
+      spy(A.storage);
       % If exists spyblck, add lines between blocks
       % TODO: Check function exists
       plt.spyblk(rowsizes(A),colsizes(A));
@@ -325,4 +369,18 @@ classdef blkmat
     
   end
 
+end
+
+function M = plainmat(A)
+% M = plainmat(A)
+% Returns a usual Matlab-matrix object
+% This can be used to have a uniform interface in blkmat operators
+
+if isa(A,'blkmat')
+  M = plain(A);
+elseif ismatrix(A)
+  M = A;
+else
+  error('Non-matrix object');
+end
 end
