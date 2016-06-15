@@ -5,3 +5,7 @@ function A = cov(n)
 
 [U,S,~] = svd(randn(n));
 A = U*S*U';
+
+% To avoid numerical issues, the result is symmetrized!
+% Otherwise epsilon magnitude errors appear in norm(A-A')
+A = symmetrize(A);
