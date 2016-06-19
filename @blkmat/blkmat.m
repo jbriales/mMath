@@ -229,22 +229,39 @@ classdef blkmat
 %       assert(all(rowsizes(A)==rowsizes(B))&&all(colsizes(A)==colsizes(B)))
       % Get sum of entire content
 %       temp = A.storage + B.storage;
-      if isa(A,'blkmat'), M_A = A.storage; else M_A = A; end
-      if isa(B,'blkmat'), M_B = B.storage; else M_B = B; end
-      temp = M_A - M_B;
+
+      assert(isa(A,'blkmat') && isa(B,'blkmat'))
+      temp = plain(A) - plain(B);
       
-      % TODO: Create according to regular block-matrix or not
-      obj = getobj(A,B);
-      if ~obj.row_regular && ~obj.col_regular
-        C = blkmat([],[],rowsizes(obj),colsizes(obj),temp);
+      if isregular(A) && isregular(B)
+        % The block matrices are regular
+        assert(nrows(A)==nrows(B))
+        assert(ncols(A)==ncols(B))
+        assert(rowsize(A)==rowsize(B))
+        assert(colsize(A)==colsize(B))
+        C = blkmat(nrows(A),ncols(A),rowsize(A),colsize(A),temp);
       else
-        error('TODO yet');
+        % The block matrices are not regular
+        assert(rowsizes(A)==rowsizes(B))
+        assert(colsizes(A)==colsizes(B))
+        C = blkmat([],[],rowsizes(A),colsizes(A),temp);
       end
     end
+    
+    function B = uminus(A)
+      B = A;
+      B.storage = -A.storage;
+    end      
     
     function C = mtimes(A,B)
       % C = mtimes(A,B)
       % Blk-matrix product
+      % Some semantics in the product with block matrix:
+      % - The block-matrix should be regular?
+      % - The block-wise product must be consistent
+      % - Product with a scalar simply scales all the content
+      % - If the result is a single block (scalar or matrix)
+      %   return raw Matlab matrix
       
       % Extract plain data
       matA = plainmat(A);
@@ -257,19 +274,18 @@ classdef blkmat
               (ncols(A)==nrows(B) && colsize(A)==rowsize(B)) )
       
       temp = matA*matB;
-      if numel(temp) == 1
-        % Scalar result, return simple number
-        C = temp;
+      % Build the corresponding blkmat for the output
+      if numel(matA)==1
+        nr=nrows(B); nc=ncols(B); rs=rowsize(B); cs=colsize(B);
+      elseif numel(matB)==1
+        nr=nrows(A); nc=ncols(A); rs=rowsize(A); cs=colsize(A);
       else
-        % Matrix result, build the corresponding blkmat
-        if numel(matA)==1
-          nr=nrows(B); nc=ncols(B); rs=rowsize(B); cs=colsize(B);
-        elseif numel(matB)==1
-          nr=nrows(A); nc=ncols(A); rs=rowsize(A); cs=colsize(A);
-        else
-          nr=nrows(A); nc=ncols(B); rs=rowsize(A); cs=colsize(B);
-        end
-        C = blkmat(nr,nc,rs,cs,temp);
+        nr=nrows(A); nc=ncols(B); rs=rowsize(A); cs=colsize(B);
+      end
+      C = blkmat(nr,nc,rs,cs,temp);
+      if numel(C) == 1
+        % Scalar result, return simple number
+        C = plain(C);
       end
     end
     
@@ -300,6 +316,10 @@ classdef blkmat
       % TODO: Change if not regular
     end
     
+    function t = trace(A)
+      t = trace(A.storage);
+    end
+    
     function r = rowsize(A),  r = A.rsizes(1); end
     function r = rowsizes(A), r = A.rsizes; end
     function r = nrows(A),    r = length(A.rsizes); end
@@ -319,18 +339,21 @@ classdef blkmat
     function isit = isregular(A), isit = A.row_regular && A.col_regular; end
     
     function M = plain(this), M = this.storage; end
-        
-    function E = isempty(A)
-    % E = isempty(A)
-    % Check for each block if all elements are zero
-    nr = nrows(A); nc = ncols(A);
-    E = false(nr,nc);
-    for i=1:nr
-      for j=1:nc
-        B = A.storage(blk2sub(i,rowsizes(A)), blk2sub(j,colsizes(A)));
-        E(i,j) = all(all(B==0));
-      end
+
+    function e = isempty(A)
+      e = isempty(A.storage);
     end
+    function E = blkisempty(A)
+      % E = isempty(A)
+      % Check for each block if all elements are zero
+      nr = nrows(A); nc = ncols(A);
+      E = false(nr,nc);
+      for i=1:nr
+        for j=1:nc
+          B = A.storage(blk2sub(i,rowsizes(A)), blk2sub(j,colsizes(A)));
+          E(i,j) = all(all(B==0));
+        end
+      end
     end
     
     function meta(A)

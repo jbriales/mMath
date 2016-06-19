@@ -1,4 +1,5 @@
 function e = canvec( n, k )
+% e = canvec( n, k )
 
 assert( k >= 1 && k <= n );
 
