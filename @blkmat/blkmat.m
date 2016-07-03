@@ -104,7 +104,8 @@ classdef blkmat
           this.storage = zeros(sum(this.rsizes), sum(this.csizes));
         else
           % Check initialization is scalar or dimensions are coherent
-          assert(isscalar(M) || all(size(M)==size(this)))
+          assert(isscalar(M) || all(size(M)==size(this)),...
+            'Wrong dimensions of the initialization matrix')
           if isscalar(M)
             this.storage = M*ones(size(this));
           else
@@ -208,7 +209,7 @@ classdef blkmat
     
     function C = plus(A,B)
       % Check consistent block dimensions
-%       assert(all(rowsizes(A)==rowsizes(B))&&all(colsizes(A)==colsizes(B)))
+      assert(all(rowsizes(A)==rowsizes(B))&&all(colsizes(A)==colsizes(B)))
       % Get sum of entire content
 %       temp = A.storage + B.storage;
       if isa(A,'blkmat'), M_A = A.storage; else M_A = A; end
@@ -220,7 +221,7 @@ classdef blkmat
       if ~obj.row_regular && ~obj.col_regular
         C = blkmat([],[],rowsizes(obj),colsizes(obj),temp);
       else
-        error('TODO yet');
+        C = blkmat(A.nrows,A.ncols,A.rowsize,A.colsize,temp);
       end
     end
     
@@ -388,6 +389,10 @@ classdef blkmat
       % If exists spyblck, add lines between blocks
       % TODO: Check function exists
       plt.spyblk(rowsizes(A),colsizes(A));
+    end
+    
+    function out = full(A)
+      out = full(A.storage);
     end
     
   end
