@@ -264,9 +264,17 @@ classdef blkmat
       % - If the result is a single block (scalar or matrix)
       %   return raw Matlab matrix
       
+      % If any input is not blkmat, convert to blkmat with single block
+      if ~isa(A,'blkmat')
+        A = blkmat(1,1,size(A,1),size(A,2),A);
+      end
+      if ~isa(B,'blkmat')
+        B = blkmat(1,1,size(B,1),size(B,2),B);
+      end
+      
       % Extract plain data
-      matA = plainmat(A);
-      matB = plainmat(B);
+      matA = plain(A);
+      matB = plain(B);
       
       % Valid cases are:
       % - A and B blkmat, with compatible size and blksize
@@ -397,18 +405,4 @@ classdef blkmat
     
   end
 
-end
-
-function M = plainmat(A)
-% M = plainmat(A)
-% Returns a usual Matlab-matrix object
-% This can be used to have a uniform interface in blkmat operators
-
-if isa(A,'blkmat')
-  M = plain(A);
-elseif ismatrix(A)
-  M = A;
-else
-  error('Non-matrix object');
-end
 end
