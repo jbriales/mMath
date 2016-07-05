@@ -214,45 +214,51 @@ classdef blkmat
     end
     
     function C = plus(A,B)
-      % Check consistent block dimensions
-      assert(all(rowsizes(A)==rowsizes(B))&&all(colsizes(A)==colsizes(B)))
-      % Get sum of entire content
-%       temp = A.storage + B.storage;
-      if isa(A,'blkmat'), M_A = A.storage; else M_A = A; end
-      if isa(B,'blkmat'), M_B = B.storage; else M_B = B; end
-      temp = M_A + M_B;
       
-      % TODO: Create according to regular block-matrix or not
-      obj = getobj(A,B);
-      if ~obj.row_regular && ~obj.col_regular
-        C = blkmat([],[],rowsizes(obj),colsizes(obj),temp);
-      else
-        C = blkmat(A.nrows,A.ncols,A.rowsize,A.colsize,temp);
+      % If any input is not blkmat, convert to blkmat with single block
+      if ~isa(A,'blkmat')
+        A = blkmat(1,1,size(A,1),size(A,2),A);
       end
+      if ~isa(B,'blkmat')
+        B = blkmat(1,1,size(B,1),size(B,2),B);
+      end
+      
+      % Check consistent block dimensions
+      assert( all(rowsizes(A)==rowsizes(B)) && ...
+              all(colsizes(A)==colsizes(B)) )
+      
+      % Extract plain data
+      matA = plain(A); matB = plain(B);
+
+      % Perform sum in internal storage
+      temp = matA + matB;
+      
+      % Store result in blkmat with the same structure
+      C = blkmat([],[],rowsizes(A),colsizes(A),temp);
     end
     
     function C = minus(A,B)
-      % Check consistent block dimensions
-%       assert(all(rowsizes(A)==rowsizes(B))&&all(colsizes(A)==colsizes(B)))
-      % Get sum of entire content
-%       temp = A.storage + B.storage;
-
-      assert(isa(A,'blkmat') && isa(B,'blkmat'))
-      temp = plain(A) - plain(B);
       
-      if isregular(A) && isregular(B)
-        % The block matrices are regular
-        assert(nrows(A)==nrows(B))
-        assert(ncols(A)==ncols(B))
-        assert(rowsize(A)==rowsize(B))
-        assert(colsize(A)==colsize(B))
-        C = blkmat(nrows(A),ncols(A),rowsize(A),colsize(A),temp);
-      else
-        % The block matrices are not regular
-        assert(rowsizes(A)==rowsizes(B))
-        assert(colsizes(A)==colsizes(B))
-        C = blkmat([],[],rowsizes(A),colsizes(A),temp);
+      % If any input is not blkmat, convert to blkmat with single block
+      if ~isa(A,'blkmat')
+        A = blkmat(1,1,size(A,1),size(A,2),A);
       end
+      if ~isa(B,'blkmat')
+        B = blkmat(1,1,size(B,1),size(B,2),B);
+      end
+      
+      % Check consistent block dimensions
+      assert( all(rowsizes(A)==rowsizes(B)) && ...
+              all(colsizes(A)==colsizes(B)) )
+      
+      % Extract plain data
+      matA = plain(A); matB = plain(B);
+
+      % Perform sum in internal storage
+      temp = matA - matB;
+      
+      % Store result in blkmat with the same structure
+      C = blkmat([],[],rowsizes(A),colsizes(A),temp);
     end
     
     function B = uminus(A)
