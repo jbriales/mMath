@@ -86,18 +86,24 @@ classdef blkmat
       else
         if isempty(nrows)
           this.rsizes = rsize;
-          this.row_regular = 0;
         else
           this.rsizes = repmat(rsize, 1, nrows);
+        end
+        if numel(unique(this.rsizes))==1
           this.row_regular = 1;
+        else
+          this.row_regular = 0;
         end
         
         if isempty(ncols)
           this.csizes = csize;
-          this.col_regular = 0;
         else
           this.csizes = repmat(csize, 1, ncols);
+        end
+        if numel(unique(this.csizes))==1
           this.col_regular = 1;
+        else
+          this.col_regular = 0;
         end
         
         if nargin < 5
