@@ -118,8 +118,18 @@ classdef blkmat
           end
           
         elseif isa(varargin{1}, 'blkpattern')
-          keyboard
-          % TODO: Can be symmetric if second varargin is NOT blkpattern
+          % Directly give blkpatterns as inputs
+          this.rpattern = varargin{1};
+          if nargin >= 2 && isa(varargin{2}, 'blkpattern')
+            this.cpattern = varargin{2};
+          else
+            this.cpattern = varargin{1}; % Symmetric pattern
+          end
+          if isnumeric( varargin{end} )
+            M = varargin{end};
+          else
+            M = 0;
+          end
           
         else
           if nargin <= 3
@@ -340,14 +350,13 @@ classdef blkmat
       A = blkmat(A); B = blkmat(B);
       
       % Check consistent block dimensions
-      assert( all(rowsizes(A)==rowsizes(B)) && ...
-              all(colsizes(A)==colsizes(B)) )
+      assert( A.rpattern == B.rpattern && A.cpattern == B.cpattern )
       
       % Sum of internal storages
       temp = plain(A) + plain(B);
       
       % Store result in blkmat with the same structure
-      C = blkmat([],[],rowsizes(A),colsizes(A),temp);
+      C = blkmat(A.rpattern,B.cpattern,temp);
     end
     
     function C = minus(A,B)
@@ -356,14 +365,13 @@ classdef blkmat
       A = blkmat(A); B = blkmat(B);
       
       % Check consistent block dimensions
-      assert( all(rowsizes(A)==rowsizes(B)) && ...
-              all(colsizes(A)==colsizes(B)) )
+      assert( A.rpattern == B.rpattern && A.cpattern == B.cpattern )
       
       % Difference of internal storages
       temp = plain(A) + plain(B);
       
       % Store result in blkmat with the same structure
-      C = blkmat([],[],rowsizes(A),colsizes(A),temp);
+      C = blkmat(A.rpattern,B.cpattern,temp);
     end  
     
     function C = mtimes(A,B)
@@ -384,12 +392,12 @@ classdef blkmat
       % - A and B blkmat, with compatible size and blksize
       % - A or B scalar
       assert( numel(matA)==1 || numel(matB)==1 || ...
-              all(colsizes(A)==rowsizes(B)) )
+              A.cpattern == B.rpattern )
       
       temp = matA*matB;
       
       % Store result in blkmat with the resulting structure
-      C = blkmat([],[],rowsizes(A),colsizes(B),temp);
+      C = blkmat(A.rpattern,B.cpattern,temp);
       if numel(C) == 1
         % Result is a single block, return as simpler numeric matrix
         C = plain(C);
@@ -410,12 +418,12 @@ classdef blkmat
       % - A and B blkmat, with compatible size and blksize
       % - A or B scalar
       assert( numel(matA)==1 || numel(matB)==1 || ...
-              all(colsizes(A)==rowsizes(B)) )
+              A.cpattern == B.rpattern )
       
       temp = matA\matB;
       
       % Store result in blkmat with the resulting structure
-      C = blkmat([],[],rowsizes(A),colsizes(B),temp);
+      C = blkmat(A.rpattern,B.cpattern,temp);
       if numel(C) == 1
         % Result is a single block, return as simpler numeric matrix
         C = plain(C);
@@ -436,12 +444,12 @@ classdef blkmat
       % - A and B blkmat, with compatible size and blksize
       % - A or B scalar
       assert( numel(matA)==1 || numel(matB)==1 || ...
-              all(colsizes(A)==rowsizes(B)) )
+              A.cpattern == B.rpattern )
       
       temp = matA/matB;
       
       % Store result in blkmat with the resulting structure
-      C = blkmat([],[],rowsizes(A),colsizes(B),temp);
+      C = blkmat(A.rpattern,B.cpattern,temp);
       if numel(C) == 1
         % Result is a single block, return as simpler numeric matrix
         C = plain(C);
@@ -509,7 +517,7 @@ classdef blkmat
       
       % Add information about labels, if the blkmat is labeled
       strLabels = [];
-      if this.is_labeled
+      if this.cpattern.is_labeled || this.rpattern.is_labeled
         strLabels = sprintf(', labeled as [%s] x [%s]',...
           num2str(cell2mat(fieldnames(this.rdict))),...
           num2str(cell2mat(fieldnames(this.cdict))) );

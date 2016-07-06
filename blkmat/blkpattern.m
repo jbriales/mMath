@@ -10,6 +10,9 @@ classdef blkpattern
     is_regular
     is_labeled
   end
+  properties (Dependent)
+    labels
+  end
   
   methods
     function this = blkpattern(varargin)
@@ -34,6 +37,16 @@ classdef blkpattern
       this.is_regular = (numel(unique(this.sizes))==1);
       % Set flag for labelled pattern
       this.is_labeled = ~isempty(fieldnames(this.dict));
+    end
+    
+    function l = get.labels(this)
+      l = cell2mat(fieldnames(this.dict));
+    end
+    
+    function is = eq(a,b)
+      % Compare the two different blk patterns. If the patterns are
+      % labeled, the labeling must be consistent for equality.
+      is = all(a.sizes == b.sizes) && all(a.labels == b.labels);
     end
     
   end
