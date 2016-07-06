@@ -71,14 +71,8 @@
 classdef blkmat
   
   properties
-    rsizes, csizes
-    rdict,  cdict
+    rpattern, cpattern
     storage
-  end
-  properties
-    % Flags, set once at the constructor and never modified again
-    is_rowRegular, is_colRegular
-    is_labeled
   end
   
   methods   
@@ -89,14 +83,10 @@ classdef blkmat
       % - NROWS, NCOLS, RSIZE, CSIZE
       % - [], [], RSIZES, CSIZES
       
-      this.rdict = struct();
-      this.cdict = struct();
       if nargin == 0
         % No arguments, default constructor
-        this.rsizes = [];
-        this.csizes = [];
-        this.is_rowRegular = 0;
-        this.is_colRegular = 0;
+        this.rpattern = blkpattern();
+        this.cpattern = blkpattern();
         this.storage = [];
         
       elseif nargin == 1
@@ -110,8 +100,8 @@ classdef blkmat
           M = varargin{1};
           assert(isnumeric(M),'The input should be a numeric matrix');
           s = size(M);
-          this.rsizes = s(1);
-          this.csizes = s(2);
+          this.rpattern = blkpattern(1,s(1));
+          this.cpattern = blkpattern(1,s(2));
           this.storage = M;
         end
         
@@ -127,19 +117,23 @@ classdef blkmat
             M = 0; % Initialize to zero
           end
           
+        elseif isa(varargin{1}, 'blkpattern')
+          keyboard
+          % TODO: Can be symmetric if second varargin is NOT blkpattern
+          
         else
           if nargin <= 3
             % The symmetric case, same dims and blk-sizes for rows and columns
             dims = varargin{1}; bsizes = varargin{2};
-            [this.rsizes,this.rdict] = setupStructure( dims,bsizes );
-            [this.csizes,this.cdict] = setupStructure( dims,bsizes );
+            pattern = blkpattern(dims,bsizes);
+            this.rpattern = pattern; this.cpattern = pattern;
           else
             % Set row structure
             rdims = varargin{1}; rsizes = varargin{3};
-            [this.rsizes,this.rdict] = setupStructure( rdims,rsizes );
+            this.rpattern = blkpattern(rdims,rsizes);
             % Set col structure
             cdims = varargin{2}; csizes = varargin{4};
-            [this.csizes,this.cdict] = setupStructure( cdims,csizes );
+            this.cpattern = blkpattern(cdims,csizes);
           end
           
           % The extra argument for initialization can be the 3rd or 5th,
@@ -162,13 +156,6 @@ classdef blkmat
           this.storage = M;
         end
       end
-      
-      % Set regularity flags
-      this.is_rowRegular = (numel(unique(this.rsizes))==1);
-      this.is_colRegular = (numel(unique(this.csizes))==1);
-      % Set flag for labelled blkmat
-      this.is_labeled = ~isempty(fieldnames(this.rdict)) || ...
-                        ~isempty(fieldnames(this.cdict));
     end
        
     % Set the number of arguments in subscript operations
@@ -245,23 +232,23 @@ classdef blkmat
             % If we reference a non-existent cell, expand the array if regular
             r = max(rows);
             if r > nrows(this)
-              if this.is_rowRegular
-                this.rsizes = repmat(this.rsizes(1), 1, r);
+              if this.rpattern.is_regular
+                this.rpattern.sizes = repmat(this.rpattern.sizes(1), 1, r);
               else
                 error('can''t expand row irregular blockmatrix');
               end
             end
             c = max(cols);
             if c > ncols(this)
-              if this.is_colRegular
-                this.csizes = repmat(this.csizes(1), 1, c);
+              if this.cpattern.is_regular
+                this.cpattern.sizes = repmat(this.cpattern.sizes(1), 1, c);
               else
                 error('can''t expand column irregular blockmatrix');
               end
             end
             
-            scalar_rows = blk2sub(rows, this.rsizes);
-            scalar_cols = blk2sub(cols, this.csizes);
+            scalar_rows = blk2sub(rows, this.rpattern.sizes);
+            scalar_cols = blk2sub(cols, this.cpattern.sizes);
             this.storage(scalar_rows, scalar_cols) = B;
           otherwise,
             error(['Unrecognized subscript operator ' S.type]);
@@ -461,23 +448,23 @@ classdef blkmat
       end
     end
     
-    function r = rowsize(A),  r = A.rsizes(1); end
-    function r = rowsizes(A), r = A.rsizes; end
-    function r = nrows(A),    r = length(A.rsizes); end
-    function c = colsize(A),  c = A.csizes(1); end
-    function c = colsizes(A), c = A.csizes; end
-    function c = ncols(A),    c = length(A.csizes); end
+    function r = rowsize(A),  r = A.rpattern.sizes(1); end
+    function r = rowsizes(A), r = A.rpattern.sizes; end
+    function r = nrows(A),    r = length(A.rpattern.sizes); end
+    function c = colsize(A),  c = A.cpattern.sizes(1); end
+    function c = colsizes(A), c = A.cpattern.sizes; end
+    function c = ncols(A),    c = length(A.cpattern.sizes); end
     function s = size(A)
       % TODO: Refactor so that size counts nrows and ncols
       % For complete size use size(A(:,:)) instead
-      s = [sum(A.rsizes), sum(A.csizes)];
+      s = [sum(A.rpattern.sizes), sum(A.cpattern.sizes)];
     end
     function n = numel(A), n = nrows(A)*ncols(A); end
     function s = blksize(A)
       % NOTE: regular blkmat should be asserted externally
       s = [rowsize(A),colsize(A)];
     end
-    function is = isregular(A), is = A.is_rowRegular && A.is_colRegular; end
+    function is = isregular(A), is = A.rpattern.is_regular && A.cpattern.is_regular; end
     function l = labels(this)
       l = {cell2mat(fieldnames(this.rdict)),...
            cell2mat(fieldnames(this.cdict))};
@@ -506,13 +493,13 @@ classdef blkmat
       % To display the matrix content, use plain method
       
       c = class(this.storage);
-      if this.is_rowRegular && this.is_colRegular
+      if this.rpattern.is_regular && this.cpattern.is_regular
         s = sprintf('%dx%d %s-matrix of %dx%d blocks',...
           nrows(this), ncols(this), c, rowsize(this), colsize(this));
-      elseif this.is_rowRegular && ~this.is_colRegular
+      elseif this.rpattern.is_regular && ~this.cpattern.is_regular
         s = sprintf('%dx- %s-matrix of %d x [%s] blocks',...
           nrows(this), c, rowsize(this), num2str(colsizes(this)));
-      elseif ~this.is_rowRegular && this.is_colRegular
+      elseif ~this.rpattern.is_regular && this.cpattern.is_regular
         s = sprintf('-x%d %s-matrix of [%s] x %d blocks',...
           ncols(this), c, num2str(rowsizes(this)), colsize(this));
       else
@@ -545,31 +532,4 @@ classdef blkmat
     
   end
 
-end
-
-function [sizes,dict] = setupStructure( arg1, sizes )
-% Preallocate dictionary
-dict = struct();
-
-if ischar(arg1)
-  rtags = arg1;
-  nblks = numel(rtags);
-  for i = 1:nblks
-    l = rtags(i);
-    dict.(l) = i;
-  end
-else
-  nblks = arg1;
-  if isempty(nblks)
-    % If empty nblks, this is take from dimension of rsizes
-    nblks = numel(sizes);
-  end
-end
-if isscalar(sizes)
-  % If we are given a single block-size, repeat this
-  sizes = repmat(sizes, 1, nblks);
-end
-assert(nblks==numel(sizes),...
-  'Number of blocks (%d) and list of block dims (%d) should be consistent',...
-  nblks, numel(sizes));
 end
