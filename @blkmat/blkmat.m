@@ -78,11 +78,8 @@ classdef blkmat
     % Flags, set once at the constructor and never modified again
     row_regular, col_regular
   end
-  properties (Dependent)
+  properties
     isLabeled
-  end
-  methods
-    function is = get.isLabeled(this), is = ~isempty(this.dict); end
   end
   
   methods   
@@ -130,6 +127,10 @@ classdef blkmat
         end
       end
       
+      % Set flag for labelled blkmat
+      this.isLabeled = ~isempty(fieldnames(this.rdict)) || ...
+                        ~isempty(fieldnames(this.cdict));
+      
       % Initialize storage field
       assert(isscalar(M) || all(size(M)==size(this)),...
         'blkmat: Wrong dim of the initialization matrix')
@@ -156,22 +157,47 @@ classdef blkmat
     function S = map_lab2idx( this, S )
       if S.type == '.'
         % If field accessor, convert into usual indexing
-        % (one index per dimension only)
+        % (only one-char index per dimension can be used)
         S.type = '()';
         S.subs = num2cell(S.subs);
       end
       if strcmp(S.type,'()')
-        % Map each label to its numeric index
         subs = S.subs;
-        for i=1:numel(subs)
-          if ischar(subs{i}) && ~strcmp(subs{i},':')
-            n = numel(S.subs{i});
-            S.subs{i} = zeros(1,n);
-            for j=1:n
-              l = subs{i}(j);
-              S.subs{i}(j) = this.dict.(l);
+        switch length(subs)
+          case 2
+            % Row and column indeces are given
+            S.subs{1} = label2idx( this.rdict, S.subs{1} );
+            S.subs{2} = label2idx( this.cdict, S.subs{2} );
+          case 1
+            % Case a single index is given (blk-vector)
+            if ncols(this)==1 % col vector
+              S.subs{1} = label2idx( this.rdict, S.subs{1} );
+            elseif nrows(this) == 1 % row vector
+              S.subs{1} = label2idx( this.cdict, S.subs{1} );
+            else
+              error('This is not a blk-vector, specify two indices for matrices');
             end
+          otherwise
+            error('Blk-mat has maximum 2 dimensions');
+        end
+
+      end
+      
+      function idxs = label2idx( dict, labels )
+        if ~strcmp(labels,':')
+          % Check all the labels are contained in the dictionary
+          labelsNotInDict = cell2mat( setdiff(labels,fieldnames(dict)) );
+          assert(isempty(labelsNotInDict),...
+                 'Labels %s don''t exist in the matrix dimension',labelsNotInDict);
+          % Read indices corresponding to labels from the dictionary
+          n = numel(labels);
+          idxs = zeros(1,n);
+          for j=1:n
+            l = labels(j);
+            idxs(j) = dict.(l);
           end
+        else
+          idxs = ':';
         end
       end
     end
