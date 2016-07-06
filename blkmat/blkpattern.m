@@ -29,8 +29,8 @@ classdef blkpattern
         
       else
         % There are more than 1 input argument
-        dims = varargin{1}; bsizes = varargin{2};
-        [this.sizes,this.dict] = setupStructure( dims,bsizes );
+        dims = varargin{1}; sizes = varargin{2};
+        [this.sizes,this.dict] = setupStructure( dims,sizes );
       end
       
       % Set regularity flag
@@ -38,15 +38,35 @@ classdef blkpattern
       % Set flag for labelled pattern
       this.is_labeled = ~isempty(fieldnames(this.dict));
     end
-    
-    function l = get.labels(this)
-      l = cell2mat(fieldnames(this.dict));
-    end
-    
+       
+    % Arithmetic
     function is = eq(a,b)
       % Compare the two different blk patterns. If the patterns are
       % labeled, the labeling must be consistent for equality.
       is = all(a.sizes == b.sizes) && all(a.labels == b.labels);
+    end
+    
+    % Utilities
+    function l = get.labels(this)
+      l = cell2mat(fieldnames(this.dict));
+    end
+    
+    function idxs = label2idx( this, labels )
+      if ~strcmp(labels,':')
+        % Check all the labels are contained in the dictionary
+        labelsNotInDict = cell2mat( setdiff(labels,fieldnames(this.dict)) );
+        assert(isempty(labelsNotInDict),...
+          'Labels %s don''t exist in the matrix dimension',labelsNotInDict);
+        % Read indices corresponding to labels from the dictionary
+        n = numel(labels);
+        idxs = zeros(1,n);
+        for j=1:n
+          l = labels(j);
+          idxs(j) = this.dict.(l);
+        end
+      else
+        idxs = ':';
+      end
     end
     
   end

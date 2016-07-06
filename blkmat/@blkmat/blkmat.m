@@ -193,38 +193,19 @@ classdef blkmat
         switch length(subs)
           case 2
             % Row and column indeces are given
-            S.subs{1} = label2idx( this.rdict, S.subs{1} );
-            S.subs{2} = label2idx( this.cdict, S.subs{2} );
+            S.subs{1} = this.rpattern.label2idx( S.subs{1} );
+            S.subs{2} = this.cpattern.label2idx( S.subs{2} );
           case 1
             % Case a single index is given (blk-vector)
             if ncols(this)==1 % col vector
-              S.subs{1} = label2idx( this.rdict, S.subs{1} );
+              S.subs{1} = this.rpattern.label2idx( S.subs{1} );
             elseif nrows(this) == 1 % row vector
-              S.subs{1} = label2idx( this.cdict, S.subs{1} );
+              S.subs{1} = this.cpattern.label2idx( S.subs{1} );
             else
               error('This is not a blk-vector, specify two indices for matrices');
             end
           otherwise
             error('Blk-mat has maximum 2 dimensions');
-        end
-
-      end
-      
-      function idxs = label2idx( dict, labels )
-        if ~strcmp(labels,':')
-          % Check all the labels are contained in the dictionary
-          labelsNotInDict = cell2mat( setdiff(labels,fieldnames(dict)) );
-          assert(isempty(labelsNotInDict),...
-                 'Labels %s don''t exist in the matrix dimension',labelsNotInDict);
-          % Read indices corresponding to labels from the dictionary
-          n = numel(labels);
-          idxs = zeros(1,n);
-          for j=1:n
-            l = labels(j);
-            idxs(j) = dict.(l);
-          end
-        else
-          idxs = ':';
         end
       end
     end
@@ -232,7 +213,7 @@ classdef blkmat
     function this = subsasgn(this,S,B)
       
       if length(S)==1 % A(i,j)
-        if this.is_labeled
+        if this.rpattern.is_labeled || this.cpattern.is_labeled
           S = map_lab2idx( this, S );
         end
         switch S.type
@@ -272,7 +253,7 @@ classdef blkmat
             
       if length(S)==1 % A(i,j)
         
-        if this.is_labeled % TODO: Change by is_labeled flag
+        if this.rpattern.is_labeled || this.cpattern.is_labeled
           S = map_lab2idx( this, S );
         end
         
@@ -319,18 +300,7 @@ classdef blkmat
         cols = 1:ncols(this);
       end
     end
-    
-    function obj = getobj(varargin)
-      % obj = getobj(varargin)
-      % Returns the first found object of type blkmat
-      for i=1:numel(varargin)
-        if isa(varargin{i},'blkmat')
-          obj = varargin{i};
-          return
-        end
-      end
-    end
-    
+        
     % Unary operators
     function B = uminus(A)
       B = A;
@@ -474,8 +444,8 @@ classdef blkmat
     end
     function is = isregular(A), is = A.rpattern.is_regular && A.cpattern.is_regular; end
     function l = labels(this)
-      l = {cell2mat(fieldnames(this.rdict)),...
-           cell2mat(fieldnames(this.cdict))};
+      l = {cell2mat(fieldnames(this.rpattern.dict)),...
+           cell2mat(fieldnames(this.cpattern.dict))};
     end
     
     function M = plain(this), M = this.storage; end
@@ -519,8 +489,8 @@ classdef blkmat
       strLabels = [];
       if this.cpattern.is_labeled || this.rpattern.is_labeled
         strLabels = sprintf(', labeled as [%s] x [%s]',...
-          num2str(cell2mat(fieldnames(this.rdict))),...
-          num2str(cell2mat(fieldnames(this.cdict))) );
+          num2str(cell2mat(fieldnames(this.rpattern.dict))),...
+          num2str(cell2mat(fieldnames(this.cpattern.dict))) );
       end
       
       % Print to screen
