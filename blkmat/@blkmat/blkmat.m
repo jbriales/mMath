@@ -221,25 +221,11 @@ classdef blkmat
           'Unrecognized subscript operator %s', S.type);
         % Get numeric indices from subscript
         [rows, cols] = extract_indices(this, S);
-        
-        % If we reference a non-existent cell, expand the array if regular
-        r = max(rows);
-        if r > nrows(this)
-          if this.rpattern.is_regular
-            this.rpattern.sizes = repmat(this.rpattern.sizes(1), 1, r);
-          else
-            error('can''t expand row irregular blockmatrix');
-          end
+        % Check out-of-bound indeces
+        if max(rows) > nrows(this) || max(cols) > ncols(this)
+          error(['index ' num2str(rows) ', ' num2str(cols) ' is out of bounds']);
         end
-        c = max(cols);
-        if c > ncols(this)
-          if this.cpattern.is_regular
-            this.cpattern.sizes = repmat(this.cpattern.sizes(1), 1, c);
-          else
-            error('can''t expand column irregular blockmatrix');
-          end
-        end
-        
+        % Set internal storage from input matrix
         this.storage(this.rpattern.block(rows),...
                      this.cpattern.block(cols)) = B;
       else
