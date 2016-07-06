@@ -1,46 +1,92 @@
-% BLKMAT Blockmatrix class.
+% blkmat Blockmatrix class.
 % This class works as a convenient wrapper to improve code readability
 % when working with matrices that are conceptually distributed blockwise.
+% The main purpose of the created object is to store a usual matrix while
+% keeping a blockwise interface, where subscript indices refer to blocks.
 %
-% M = BLKMAT(NROWS, NCOLS, RSIZE, CSIZE) creates an NROWS by NCOLS blockmatrix,
-% where the size of each block is RSIZE by CSIZE. This is called a regular blockmatrix.
+% The indexing (subsasgn,subsref) methods are modified so that the objects
+% behaves externally as a matrix:
+% 
+%   - Read block
+%   Use `x = M(i,j)` to assign block (i,j) to x.
+%   If this block does not exist, an error will be raised.
+%   If ncols(M)=1, it suffices to write 'x = M(i)', and similarly for row vectors.
+%   You can also use ranges, e.g., M(:,:) or M(:) or M(1:3) or M(2:end)
+%
+%   - Write block
+%   Use `M(i,j) = x` to assign x to block (i,j).
+%   If this block does not exist, an error will be raised.
+% 
+% We enrich the object with the ability to tag the blocks with letters, so
+% that letter indices and struct syntax can be used to access the blocks
+% (as long as the blkmat is built as labeled, see constructors):
+% 
+%   - Access block with letter indices
+%   Use `M('a','mn')` to access the block tagged *a* in the row dimension
+%   and *b* in the second dimension. 
+%   The struct syntax `M.am` is equivalent to `M('a','m')`. This syntax
+%   allows only for single-index subscripts (not lists of indices).
+% 
+% 
+% CONSTRUCTORS
+% ------------
+% 
+%   M = blkmat(NROWS, NCOLS, RSIZE, CSIZE)
+% Create an NROWS by NCOLS blockmatrix, where the size of each block
+% is RSIZE by CSIZE. This is called a regular blockmatrix.
 %
 % It is also possible for the blocks to have different sizes along a dimension.
-% M = BLKMAT([], NCOLS, RSIZES, CSIZE) creates a NROWS by NCOLS blockmatrix,
-% where NROWS = LENGTH(RSIZES), and the size of block (i,j) is RSIZES(I) by CSIZE.
-% This is called a row irregular, column regular blockmatrix.
-% M = BLKMAT(NROWS, [], RSIZE, CSIZES) creates a NROWS by NCOLS blockmatrix,
-% where NCOLS = LENGTH(CSIZES), and the size of block (i,j) is RSIZE by CSIZES(J)
-% This is called a row regular, column irregular blockmatrix.
-% M = BLKMAT([], [], RSIZES, CSIZES) creates a NROWS by NCOLS blockmatrix,
-% where the size of block (i,j) is RSIZES(I) by CSIZES(J).
-% This is called a fully irregular matrix.
+% In this case we give a vector of block-sizes:
+%   M = blkmat([], NCOLS, RSIZES, CSIZE)
+%   M = blkmat(NROWS, [], RSIZE, CSIZES)
+%   M = blkmat([], [], RSIZES, CSIZES)
+% If the number of blocks is given in addition to the vector of sizes,
+% we keep the same behavior (with additional checking of the consistency).
+% If the block-sizes in a certain dimension are not all the same,
+% this dimension is called non-regular.
+% 
+%   M = blkmat(RLABELS, CLABELS, ...)
+% Create a *labeled* blkmat, where the blocks can be referred to by its
+% tag in addition to their numeric index. See examples.
+% 
+% If the matrix structure is symmetric, we can give the dimensions and/or
+% sizes only once:
+%   M = blkmat(NBLOCKS, SIZE)
+%   M = blkmat([], SIZES)
+%   M = blkmat(LABELS, SIZES)
+% 
+% The internal value of the blkmat can be initialized giving a plain matrix
+% (with consistent dimensions) as the last argument:
+%   M = blkmat( ..., M0 )
 %
-% Note that M = BLKMAT(NROWS, NCOLS, RSIZE, CSIZE) is equivalent to
-% M = BLKMAT([], [], RSIZE*ONES(1,NROWS), CSIZE*ONES(1,NCOLS)),
-% except that the latter is considered irregular.
-%
-% Use 'x = M(i,j)' to assign block (i,j) to x.
-% If this block does not exist, an error will be raised.
-% If ncols(M)=1, it suffices to write 'x = M(i)', and similarly for row vectors.
-% You can also use ranges, e.g., M(:,:) or M(:) or M(1:3)
-%
-% Use 'M(i,j) = x' to assign x to block (i,j).
-% If this block does not exist, it will be created,
-% providing M is regular in the out-of-bounds dimension.
-% (If M is irregular, an error will be raised.)
-%
+% Other useful constructors are:
+%   B = blkmat(A)
+%   Clone the object A (same content).
+% 
+%   B = blkmat(A,M0)
+%   Copy the structure of A but stores data from M0.
+% 
+%   B = blkmat(RPATTERN,CPATTERN)
+%   B = blkmat(RPATTERN,CPATTERN,M0)
+%   Create a matrix with the input patterns (objects of class blkpattern).
+% 
+% USEFUL METHODS
+% --------------
+% 
 % The following functions are defined in the obvious way:
-% NROWS(M), NCOLS(M)
-% ROWSIZES(M), COLSIZES(M) if irregular
-% ROWSIZE(M), COLSIZE(M) if regular
+% nrows(M), ncols(M)
+% rowsizes(M), colsizes(M)
+% rowsize(M), colsize(M) (only useful if regular)
 %
-% No other operations can be performed on blockmatrices.
-% To do arithmetic, you need to operate on the underlying scalar matrix,
-% which can be accessed using M(:,:).
+% 
+% OPERATORS
+% ---------
+% Usual matrix operations are overloaded for blkmat checking for internal
+% consistency of the block sizes and, in general, returning the
+% corresponding new blkmat object.
 %
 % EXAMPLES
-%   M = blockmatrix(2, 2, 2, 2)
+%   M = blkmat(2, 2, 2, 2)
 %   M(1,1) = eye(2); M(2,2) = -eye(2).
 %
 %     1     0     0     0
@@ -48,7 +94,7 @@
 %     0     0    -1     0
 %     0     0     0    -1
 %
-%   M = blockmatrix([], [], [2 3], [2 1])
+%   M = blkmat([], [], [2 3], [2 1])
 %   M(:,:) = rand(5, 3) looks like this:
 %
 %    x x   x
@@ -57,13 +103,27 @@
 %    x x   x
 %    x x   x
 %    x x   x
+% 
+%   M = blkmat('AB','CD', 3, 3)
+%   M.AC; M('A','C'); M('AB','C'); M(:,'D')
+% 
+%        C       D
+%      -----   -----
+%        
+%    | x x x   x x x
+%   A| x x x   x x x
+%    | x x x   x x x
+%
+%    | x x x   x x x
+%   B| x x x   x x x
+%    | x x x   x x x
 %
 % Notes:
-% - Once the blkmat object has been built, its structure is fixed.
-%   Only the content can be modified via subscripted assignment.
 % - The usual functionalities for matrix objects are extended.
 %   For avoiding confusion, some of the traditional methods are
 %   prepended the *blk* word, e.g. blknumel().
+% 
+% See also: blkpattern.
 
 % Inspired by Kevin Murphy (www.cs.berkeley.edu/~murphyk), 21 October 1999
 % This version by Jesus Briales, 3 May 2016
@@ -110,12 +170,8 @@ classdef blkmat
         if isa(varargin{1}, 'blkmat')
           % If 1st argument is blkmat, copy the input structure
           this = varargin{1};
-          if nargin == 2
-            % There is extra argument giving content initialization
-            M = varargin{2};
-          else
-            M = 0; % Initialize to zero
-          end
+          % There is extra argument giving content initialization
+          M = varargin{2};
           
         elseif isa(varargin{1}, 'blkpattern')
           % Directly give blkpatterns as inputs
@@ -275,19 +331,40 @@ classdef blkmat
     end
     
     % Binary operators
+    function [rpat,cpat] = sumPattern(A,B)
+      % Valid cases are:
+      % - A and B blkmat, with compatible size and blksize
+      assert( A.rpattern == B.rpattern && A.cpattern == B.cpattern )
+      rpat = A.rpattern; cpat = A.cpattern;
+    end
+    
+    function [rpat,cpat] = prodPattern(A,B)
+      % Valid cases are:
+      % - A and B blkmat, with compatible size and blksize
+      % - A or B scalar
+      if isscalar(plain(A))
+        rpat = B.rpattern; cpat = B.cpattern;
+      elseif isscalar(plain(B))
+        rpat = A.rpattern; cpat = A.cpattern;
+      else
+        assert( A.cpattern == B.rpattern )
+        rpat = A.rpattern; cpat = B.cpattern;
+      end
+    end
+    
     function C = plus(A,B)
       
       % Force blkmat matrices (in case one of the inputs is numeric)
       A = blkmat(A); B = blkmat(B);
       
-      % Check consistent block dimensions
-      assert( A.rpattern == B.rpattern && A.cpattern == B.cpattern )
+      % Compute result structure
+      [rpat,cpat] = sumPattern(A,B);
       
       % Sum of internal storages
       temp = plain(A) + plain(B);
       
       % Store result in blkmat with the same structure
-      C = blkmat(A.rpattern,B.cpattern,temp);
+      C = blkmat(rpat,cpat,temp);
     end
     
     function C = minus(A,B)
@@ -295,16 +372,16 @@ classdef blkmat
       % Force blkmat matrices (in case one of the inputs is numeric)
       A = blkmat(A); B = blkmat(B);
       
-      % Check consistent block dimensions
-      assert( A.rpattern == B.rpattern && A.cpattern == B.cpattern )
+      % Compute result structure
+      [rpat,cpat] = sumPattern(A,B);
       
       % Difference of internal storages
       temp = plain(A) + plain(B);
       
       % Store result in blkmat with the same structure
-      C = blkmat(A.rpattern,B.cpattern,temp);
+      C = blkmat(rpat,cpat,temp);
     end  
-    
+        
     function C = mtimes(A,B)
       % C = mtimes(A,B)
       % Some semantics in the product with block matrix:
@@ -314,21 +391,15 @@ classdef blkmat
       
       % Force blkmat matrices (in case one of the inputs is numeric)
       A = blkmat(A); B = blkmat(B);
+           
+      % Compute result structure
+      [rpat,cpat] = prodPattern(A,B);
       
-      % Extract plain data
-      matA = plain(A);
-      matB = plain(B);
-      
-      % Valid cases are:
-      % - A and B blkmat, with compatible size and blksize
-      % - A or B scalar
-      assert( numel(matA)==1 || numel(matB)==1 || ...
-              A.cpattern == B.rpattern )
-      
-      temp = matA*matB;
+      % Product of internal storages
+      temp = plain(A)*plain(B);
       
       % Store result in blkmat with the resulting structure
-      C = blkmat(A.rpattern,B.cpattern,temp);
+      C = blkmat(rpat,cpat,temp);
       if numel(C) == 1
         % Result is a single block, return as simpler numeric matrix
         C = plain(C);
@@ -341,20 +412,14 @@ classdef blkmat
       % Force blkmat matrices (in case one of the inputs is numeric)
       A = blkmat(A); B = blkmat(B);
       
-      % Extract plain data
-      matA = plain(A);
-      matB = plain(B);
+      % Compute result structure
+      [rpat,cpat] = prodPattern(A,B);
       
-      % Valid cases are:
-      % - A and B blkmat, with compatible size and blksize
-      % - A or B scalar
-      assert( numel(matA)==1 || numel(matB)==1 || ...
-              A.cpattern == B.rpattern )
-      
-      temp = matA\matB;
+      % Left division of internal storages
+      temp = plain(A)\plain(B);
       
       % Store result in blkmat with the resulting structure
-      C = blkmat(A.rpattern,B.cpattern,temp);
+      C = blkmat(rpat,cpat,temp);
       if numel(C) == 1
         % Result is a single block, return as simpler numeric matrix
         C = plain(C);
@@ -366,21 +431,15 @@ classdef blkmat
       
       % Force blkmat matrices (in case one of the inputs is numeric)
       A = blkmat(A); B = blkmat(B);
+            
+      % Compute result structure
+      [rpat,cpat] = prodPattern(A,B);
       
-      % Extract plain data
-      matA = plain(A);
-      matB = plain(B);
-      
-      % Valid cases are:
-      % - A and B blkmat, with compatible size and blksize
-      % - A or B scalar
-      assert( numel(matA)==1 || numel(matB)==1 || ...
-              A.cpattern == B.rpattern )
-      
-      temp = matA/matB;
+      % Right division of internal storages
+      temp = plain(A)/plain(B);
       
       % Store result in blkmat with the resulting structure
-      C = blkmat(A.rpattern,B.cpattern,temp);
+      C = blkmat(rpat,cpat,temp);
       if numel(C) == 1
         % Result is a single block, return as simpler numeric matrix
         C = plain(C);
