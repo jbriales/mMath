@@ -58,8 +58,8 @@
 %    x x   x
 %    x x   x
 
-% Written by Kevin Murphy (www.cs.berkeley.edu/~murphyk), 21 October 1999
-% Refactored by Jesus Briales, 3 May 2016
+% Inspired by Kevin Murphy (www.cs.berkeley.edu/~murphyk), 21 October 1999
+% This version by Jesus Briales, 3 May 2016
 
 classdef blkmat
   %BLKMAT Summary of this class goes here
@@ -69,6 +69,16 @@ classdef blkmat
     rsizes, csizes
     row_regular, col_regular
     storage
+  end
+  
+  properties (Constant) % For label-based indexing only, NO CONSTANT
+    dict = struct('Q',1,'T',2);
+  end
+  properties (Dependent)
+    isLabeled
+  end
+  methods
+    function is = get.isLabeled(this), is = ~isempty(this.dict); end
   end
   
   methods   
@@ -121,34 +131,73 @@ classdef blkmat
       end
     end
     
-    function A = subsasgn(A,S,B)
+    % Set the number of arguments in subscript operations
+    % Avoid conflicts with (overloaded) numel method
+    function n = numArgumentsFromSubscript(this,~,callingContext)
+      switch callingContext
+        case matlab.mixin.util.IndexingContext.Statement
+          n = 1; % nargout for indexed reference used as statement
+        case matlab.mixin.util.IndexingContext.Expression
+          n = 1; % nargout for indexed reference used as function argument
+        case matlab.mixin.util.IndexingContext.Assignment
+          n = 1; % nargin for indexed assignment
+      end
+    end
+    
+    function S = map_lab2idx( this, S )
+      if S.type == '.'
+        % If field accessor, convert into usual indexing
+        % (one index per dimension only)
+        S.type = '()';
+        S.subs = num2cell(S.subs);
+      end
+      if strcmp(S.type,'()')
+        % Map each label to its numeric index
+        subs = S.subs;
+        for i=1:numel(subs)
+          if ischar(subs{i}) && ~strcmp(subs{i},':')
+            n = numel(S.subs{i});
+            S.subs{i} = zeros(1,n);
+            for j=1:n
+              l = subs{i}(j);
+              S.subs{i}(j) = this.dict.(l);
+            end
+          end
+        end
+      end
+    end
+    
+    function this = subsasgn(this,S,B)
       
       if length(S)==1 % A(i,j)
+        if this.isLabeled
+          S = map_lab2idx( this, S );
+        end
         switch S.type
           case '()',
-            [rows, cols] = extract_indices(A, S.subs);
+            [rows, cols] = extract_indices(this, S.subs);
             
             % If we reference a non-existent cell, expand the array if regular
             r = max(rows);
-            if r > nrows(A)
-              if A.row_regular
-                A.rsizes = repmat(A.rsizes(1), 1, r);
+            if r > nrows(this)
+              if this.row_regular
+                this.rsizes = repmat(this.rsizes(1), 1, r);
               else
                 error('can''t expand row irregular blockmatrix');
               end
             end
             c = max(cols);
-            if c > ncols(A)
-              if A.col_regular
-                A.csizes = repmat(A.csizes(1), 1, c);
+            if c > ncols(this)
+              if this.col_regular
+                this.csizes = repmat(this.csizes(1), 1, c);
               else
                 error('can''t expand column irregular blockmatrix');
               end
             end
             
-            scalar_rows = blk2sub(rows, A.rsizes);
-            scalar_cols = blk2sub(cols, A.csizes);
-            A.storage(scalar_rows, scalar_cols) = B;
+            scalar_rows = blk2sub(rows, this.rsizes);
+            scalar_cols = blk2sub(cols, this.csizes);
+            this.storage(scalar_rows, scalar_cols) = B;
           otherwise,
             error(['Unrecognized subscript operator ' S.type]);
         end
@@ -157,16 +206,23 @@ classdef blkmat
       end
     end
     
-    function B = subsref(A,S)
-      
+    function varargout = subsref(this,S)
+            
       if length(S)==1 % A(i,j)
+        
+        if this.isLabeled % TODO: Change by isLabeled flag
+          S = map_lab2idx( this, S );
+        end
+        
         switch S.type
           case '()',
-            [rows, cols] = extract_indices(A, S.subs);
-            if max(rows) > nrows(A) | max(cols) > ncols(A)
+            % Use numerical indeces for blocks in the matrix
+            [rows, cols] = extract_indices(this, S.subs);
+            if max(rows) > nrows(this) | max(cols) > ncols(this)
               error(['index ' num2str(rows) ', ' num2str(cols) ' is out of bounds']);
             end
-            B = A.storage(blk2sub(rows, rowsizes(A)), blk2sub(cols, colsizes(A)));
+            varargout{1} = this.storage(blk2sub(rows, rowsizes(this)), blk2sub(cols, colsizes(this)));
+            
           otherwise,
             error(['Unrecognized subscript operator ' S.type]);
         end
@@ -174,7 +230,7 @@ classdef blkmat
         error(['Unrecognized subscript operator ' S]);
       end
     end
-    
+        
     function [rows, cols] = extract_indices(A, subs)
       
       if length(subs)==1
@@ -377,31 +433,22 @@ classdef blkmat
       end
     end
     
-    function meta(A)
-    % meta(A)
-    % Display metadata for the block matrix
-      if A.row_regular & A.col_regular
+    function disp(A)
+      % To display the matrix content, use plain method
+      if A.row_regular && A.col_regular
         s = sprintf('%dx%d %s-matrix of %dx%d blocks',...
           nrows(A), ncols(A), class(A.storage), rowsize(A), colsize(A));
-      elseif A.row_regular & ~A.col_regular
+      elseif A.row_regular && ~A.col_regular
         s = sprintf('%dx- %s-matrix of %d x [%s] blocks',...
           nrows(A), class(A.storage), rowsize(A), num2str(colsizes(A)));
-      elseif ~A.row_regular & A.col_regular
+      elseif ~A.row_regular && A.col_regular
         s = sprintf('-x%d %s-matrix of [%s] x %d blocks',...
           ncols(A), class(A.storage), num2str(rowsizes(A)), colsize(A));
       else
         s = sprintf('-x- %s-matrix of [%s] x [%s] blocks',...
           class(A.storage), num2str(rowsizes(A)), num2str(colsizes(A)));
       end
-      disp(' ');
-      disp([' ' inputname(1) ' = ' s ]);
-      disp(' ');
-    end
-    
-    function disp(A)
-      meta(A)
-      % TODO: Show only if dimensions is below some threshold
-      disp(A.storage)
+      fprintf('\t%s\n',s);
     end
     
     function spy(A)
