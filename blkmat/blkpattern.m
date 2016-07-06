@@ -51,22 +51,30 @@ classdef blkpattern
       l = cell2mat(fieldnames(this.dict));
     end
     
-    function idxs = label2idx( this, labels )
-      if ~strcmp(labels,':')
-        % Check all the labels are contained in the dictionary
-        labelsNotInDict = cell2mat( setdiff(labels,fieldnames(this.dict)) );
-        assert(isempty(labelsNotInDict),...
-          'Labels %s don''t exist in the matrix dimension',labelsNotInDict);
-        % Read indices corresponding to labels from the dictionary
-        n = numel(labels);
-        idxs = zeros(1,n);
-        for j=1:n
-          l = labels(j);
-          idxs(j) = this.dict.(l);
-        end
+    function intIdxs = numSubs( this, idxs )
+      if isnumeric( idxs )
+        intIdxs = idxs;
       else
-        idxs = ':';
+        if strcmp(idxs,':')
+          intIdxs = 1:numel(this.sizes);
+        else
+          % Check all the labels are contained in the dictionary
+          labelsNotInDict = setdiff(idxs,this.labels);
+          assert(isempty(labelsNotInDict),...
+            'Labels %s don''t exist in the matrix dimension',labelsNotInDict);
+          % Read indices corresponding to labels from the dictionary
+          n = numel(idxs);
+          intIdxs = zeros(1,n);
+          for j=1:n
+            l = idxs(j);
+            intIdxs(j) = this.dict.(l);
+          end
+        end
       end
+    end
+    
+    function idxs = block( this, blkIdxs )
+      idxs = blk2sub(blkIdxs, this.sizes);
     end
     
   end

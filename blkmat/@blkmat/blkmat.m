@@ -181,7 +181,7 @@ classdef blkmat
       end
     end
     
-    function S = map_lab2idx( this, S )
+    function [rows,cols] = extract_indices( this, S )
       if S.type == '.'
         % If field accessor, convert into usual indexing
         % (only one-char index per dimension can be used)
@@ -189,115 +189,80 @@ classdef blkmat
         S.subs = num2cell(S.subs);
       end
       if strcmp(S.type,'()')
-        subs = S.subs;
-        switch length(subs)
-          case 2
-            % Row and column indeces are given
-            S.subs{1} = this.rpattern.label2idx( S.subs{1} );
-            S.subs{2} = this.cpattern.label2idx( S.subs{2} );
+        % Complete indexing for matrix
+        switch numel(S.subs)
           case 1
             % Case a single index is given (blk-vector)
             if ncols(this)==1 % col vector
-              S.subs{1} = this.rpattern.label2idx( S.subs{1} );
+              S.subs = {S.subs{1}, 1};
             elseif nrows(this) == 1 % row vector
-              S.subs{1} = this.cpattern.label2idx( S.subs{1} );
+              S.subs = {1, S.subs{1}};
             else
               error('This is not a blk-vector, specify two indices for matrices');
             end
+          case 2
+            % Everything fine
           otherwise
             error('Blk-mat has maximum 2 dimensions');
         end
+        
+        % Convert all idxs to numeric idxs
+        % For matrix, there are exactly 2 indices (row and column)
+        rows = this.rpattern.numSubs( S.subs{1} );
+        cols = this.cpattern.numSubs( S.subs{2} );
+        
       end
     end
     
     function this = subsasgn(this,S,B)
       
-      if length(S)==1 % A(i,j)
-        if this.rpattern.is_labeled || this.cpattern.is_labeled
-          S = map_lab2idx( this, S );
+      if length(S)==1 % A(i,j), A.ab, A('a','b')
+        assert(strcmp(S.type,'()') || strcmp(S.type,'.'),...
+          'Unrecognized subscript operator %s', S.type);
+        % Get numeric indices from subscript
+        [rows, cols] = extract_indices(this, S);
+        
+        % If we reference a non-existent cell, expand the array if regular
+        r = max(rows);
+        if r > nrows(this)
+          if this.rpattern.is_regular
+            this.rpattern.sizes = repmat(this.rpattern.sizes(1), 1, r);
+          else
+            error('can''t expand row irregular blockmatrix');
+          end
         end
-        switch S.type
-          case '()',
-            [rows, cols] = extract_indices(this, S.subs);
-            
-            % If we reference a non-existent cell, expand the array if regular
-            r = max(rows);
-            if r > nrows(this)
-              if this.rpattern.is_regular
-                this.rpattern.sizes = repmat(this.rpattern.sizes(1), 1, r);
-              else
-                error('can''t expand row irregular blockmatrix');
-              end
-            end
-            c = max(cols);
-            if c > ncols(this)
-              if this.cpattern.is_regular
-                this.cpattern.sizes = repmat(this.cpattern.sizes(1), 1, c);
-              else
-                error('can''t expand column irregular blockmatrix');
-              end
-            end
-            
-            scalar_rows = blk2sub(rows, this.rpattern.sizes);
-            scalar_cols = blk2sub(cols, this.cpattern.sizes);
-            this.storage(scalar_rows, scalar_cols) = B;
-          otherwise,
-            error(['Unrecognized subscript operator ' S.type]);
+        c = max(cols);
+        if c > ncols(this)
+          if this.cpattern.is_regular
+            this.cpattern.sizes = repmat(this.cpattern.sizes(1), 1, c);
+          else
+            error('can''t expand column irregular blockmatrix');
+          end
         end
+        
+        this.storage(this.rpattern.block(rows),...
+                     this.cpattern.block(cols)) = B;
       else
         error(['Unrecognized subscript operator ' S]);
       end
     end
     
     function varargout = subsref(this,S)
-            
-      if length(S)==1 % A(i,j)
-        
-        if this.rpattern.is_labeled || this.cpattern.is_labeled
-          S = map_lab2idx( this, S );
+      
+      if length(S)==1 % A(i,j), A.ab, A('a','b')
+        assert(strcmp(S.type,'()') || strcmp(S.type,'.'),...
+          'Unrecognized subscript operator %s', S.type);
+        % Get numeric indices from subscript
+        [rows, cols] = extract_indices(this, S);
+        % Check out-of-bound indeces
+        if max(rows) > nrows(this) || max(cols) > ncols(this)
+          error(['index ' num2str(rows) ', ' num2str(cols) ' is out of bounds']);
         end
-        
-        switch S.type
-          case '()',
-            % Use numerical indeces for blocks in the matrix
-            [rows, cols] = extract_indices(this, S.subs);
-            if max(rows) > nrows(this) | max(cols) > ncols(this)
-              error(['index ' num2str(rows) ', ' num2str(cols) ' is out of bounds']);
-            end
-            varargout{1} = this.storage(blk2sub(rows, rowsizes(this)), blk2sub(cols, colsizes(this)));
-            
-          otherwise,
-            error(['Unrecognized subscript operator ' S.type]);
-        end
+        % Set output matrix from blocks
+        varargout{1} = this.storage(this.rpattern.block(rows),...
+                                    this.cpattern.block(cols));
       else
         error(['Unrecognized subscript operator ' S]);
-      end
-    end
-        
-    function [rows, cols] = extract_indices(this, subs)
-      
-      if length(subs)==1
-        if ncols(this)==1 % col vector
-          rows = subs{1};
-          cols = 1;
-        elseif nrows(this) == 1 % row vector
-          cols = subs{1};
-          rows = 1;
-        else
-          error('must specify two indices');
-        end
-      else
-        rows = subs{1};
-        cols = subs{2};
-      end
-      
-      % just using the test "rows == ':'" produces strange results if rows is 58, since char(58)==':'
-      if ischar(rows) && rows == ':'
-        rows = 1:nrows(this);
-      end
-      
-      if ischar(cols) && cols == ':'
-        cols = 1:ncols(this);
       end
     end
         
