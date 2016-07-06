@@ -214,6 +214,16 @@ classdef blkmat
       end
     end
     
+    function ind = end(this,k,n)
+      if k==1
+        ind = nrows(this);
+      elseif k==2
+        ind = ncols(this);
+      else
+        error('Only 2 subscripts are used by blkmat');
+      end
+    end
+    
     function this = subsasgn(this,S,B)
       
       if length(S)==1 % A(i,j), A.ab, A('a','b')
