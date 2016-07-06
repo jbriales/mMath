@@ -181,6 +181,16 @@ classdef blkmat
       end
     end
     
+    function ind = end(this,k,n)
+      if k==1
+        ind = nrows(this);
+      elseif k==2
+        ind = ncols(this);
+      else
+        error('Only 2 subscripts are used by blkmat');
+      end
+    end
+    
     function [rows,cols] = extract_indices( this, S )
       if S.type == '.'
         % If field accessor, convert into usual indexing
@@ -211,16 +221,6 @@ classdef blkmat
         rows = this.rpattern.numSubs( S.subs{1} );
         cols = this.cpattern.numSubs( S.subs{2} );
         
-      end
-    end
-    
-    function ind = end(this,k,n)
-      if k==1
-        ind = nrows(this);
-      elseif k==2
-        ind = ncols(this);
-      else
-        error('Only 2 subscripts are used by blkmat');
       end
     end
     
@@ -462,6 +462,7 @@ classdef blkmat
       spy(A.storage);
       % If exists spyblck, add lines between blocks
       % TODO: Check function exists
+      % TODO: Should implement spyblk in the blkpattern class
       plt.spyblk(rowsizes(A),colsizes(A));
     end
     
