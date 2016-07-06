@@ -85,69 +85,87 @@ classdef blkmat
       % Possible inputs are:
       % - NROWS, NCOLS, RSIZE, CSIZE
       % - [], [], RSIZES, CSIZES
-%       keyboard
       
       this.rdict = struct();
       this.cdict = struct();
-      if nargin == 0 % default constructor
+      if nargin == 0
+        % No arguments, default constructor
         this.rsizes = [];
         this.csizes = [];
         this.is_rowRegular = 0;
         this.is_colRegular = 0;
         this.storage = [];
         
-      elseif isa(varargin{1}, 'blkmat')
-        % If 1st argument is blkmat, this is a copy constructor
-        this = varargin{1};
-        if nargin == 2
-          % There is extra argument giving content initialization
-          M = varargin{2};
+      elseif nargin == 1
+        % One single input argument
+        if isa(varargin{1}, 'blkmat')
+          % Copy constructor
+          this = varargin{1};
+          return % When clone copy is done, we can skip subsequent steps
         else
-          M = 0; % Initialize to zero
+          % Build single block matrix from numeric input
+          M = varargin{1};
+          assert(isnumeric(M),'The input should be a numeric matrix');
+          s = size(M);
+          this.rsizes = s(1);
+          this.csizes = s(2);
+          this.storage = M;
         end
         
       else
-        if nargin <= 3
-          % The symmetric case, same dims and blk-sizes for rows and columns
-          dims = varargin{1}; bsizes = varargin{2};
-          [this.rsizes,this.rdict] = setupStructure( dims,bsizes );
-          [this.csizes,this.cdict] = setupStructure( dims,bsizes );
+        % There are more than 1 input argument
+        if isa(varargin{1}, 'blkmat')
+          % If 1st argument is blkmat, copy the input structure
+          this = varargin{1};
+          if nargin == 2
+            % There is extra argument giving content initialization
+            M = varargin{2};
+          else
+            M = 0; % Initialize to zero
+          end
+          
         else
-          % Set row structure
-          rdims = varargin{1}; rsizes = varargin{3};
-          [this.rsizes,this.rdict] = setupStructure( rdims,rsizes );
-          % Set col structure
-          cdims = varargin{2}; csizes = varargin{4};
-          [this.csizes,this.cdict] = setupStructure( cdims,csizes );        
+          if nargin <= 3
+            % The symmetric case, same dims and blk-sizes for rows and columns
+            dims = varargin{1}; bsizes = varargin{2};
+            [this.rsizes,this.rdict] = setupStructure( dims,bsizes );
+            [this.csizes,this.cdict] = setupStructure( dims,bsizes );
+          else
+            % Set row structure
+            rdims = varargin{1}; rsizes = varargin{3};
+            [this.rsizes,this.rdict] = setupStructure( rdims,rsizes );
+            % Set col structure
+            cdims = varargin{2}; csizes = varargin{4};
+            [this.csizes,this.cdict] = setupStructure( cdims,csizes );
+          end
+          
+          % The extra argument for initialization can be the 3rd or 5th,
+          % so it is the last if there is an odd number of arguments
+          if mod(nargin,2)
+            % If odd, there is extra argument giving content initialization
+            M = varargin{end};
+          else
+            % If even, no initialization, set to 0
+            M = 0;
+          end
         end
         
-        % Set regularity flags
-        this.is_rowRegular = (numel(unique(this.rsizes))==1);
-        this.is_colRegular = (numel(unique(this.csizes))==1);
-        
-        % The extra argument for initialization can be the 3rd or 5th,
-        % so it is the last if there is an odd number of arguments
-        if mod(nargin,2)
-          % If odd, there is extra argument giving content initialization
-          M = varargin{end};
+        % Initialize storage field
+        assert(isscalar(M) || all(size(M)==size(this)),...
+          'blkmat: Wrong dim of the initialization matrix')
+        if isscalar(M)
+          this.storage = M*ones(size(this));
         else
-          % If even, no initialization, set to 0
-          M = 0;
+          this.storage = M;
         end
       end
       
+      % Set regularity flags
+      this.is_rowRegular = (numel(unique(this.rsizes))==1);
+      this.is_colRegular = (numel(unique(this.csizes))==1);
       % Set flag for labelled blkmat
       this.is_labeled = ~isempty(fieldnames(this.rdict)) || ...
                         ~isempty(fieldnames(this.cdict));
-      
-      % Initialize storage field
-      assert(isscalar(M) || all(size(M)==size(this)),...
-        'blkmat: Wrong dim of the initialization matrix')
-      if isscalar(M)
-        this.storage = M*ones(size(this));
-      else
-        this.storage = M;
-      end
     end
        
     % Set the number of arguments in subscript operations
