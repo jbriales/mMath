@@ -468,22 +468,35 @@ classdef blkmat
       end
     end
     
-    function disp(A)
+    function disp(this)
+      % Display the metadata about blk-matrix structure only
       % To display the matrix content, use plain method
-      if A.is_rowRegular && A.is_colRegular
+      
+      c = class(this.storage);
+      if this.is_rowRegular && this.is_colRegular
         s = sprintf('%dx%d %s-matrix of %dx%d blocks',...
-          nrows(A), ncols(A), class(A.storage), rowsize(A), colsize(A));
-      elseif A.is_rowRegular && ~A.is_colRegular
+          nrows(this), ncols(this), c, rowsize(this), colsize(this));
+      elseif this.is_rowRegular && ~this.is_colRegular
         s = sprintf('%dx- %s-matrix of %d x [%s] blocks',...
-          nrows(A), class(A.storage), rowsize(A), num2str(colsizes(A)));
-      elseif ~A.is_rowRegular && A.is_colRegular
+          nrows(this), c, rowsize(this), num2str(colsizes(this)));
+      elseif ~this.is_rowRegular && this.is_colRegular
         s = sprintf('-x%d %s-matrix of [%s] x %d blocks',...
-          ncols(A), class(A.storage), num2str(rowsizes(A)), colsize(A));
+          ncols(this), c, num2str(rowsizes(this)), colsize(this));
       else
         s = sprintf('-x- %s-matrix of [%s] x [%s] blocks',...
-          class(A.storage), num2str(rowsizes(A)), num2str(colsizes(A)));
+          c, num2str(rowsizes(this)), num2str(colsizes(this)));
       end
-      fprintf('\t%s\n',s);
+      
+      % Add information about labels, if the blkmat is labeled
+      strLabels = [];
+      if this.is_labeled
+        strLabels = sprintf(', labeled as [%s] x [%s]',...
+          num2str(cell2mat(fieldnames(this.rdict))),...
+          num2str(cell2mat(fieldnames(this.cdict))) );
+      end
+      
+      % Print to screen
+      fprintf('\t%s%s\n',s,strLabels);
     end
     
     function spy(A)
