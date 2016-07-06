@@ -181,7 +181,8 @@ classdef blkmat
           else
             this.cpattern = varargin{1}; % Symmetric pattern
           end
-          if isnumeric( varargin{end} )
+          if ~isa(varargin{end}, 'blkpattern')
+            % If the last argument is NOT blkpattern, it must be the init.
             M = varargin{end};
           else
             M = 0;
