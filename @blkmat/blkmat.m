@@ -66,20 +66,16 @@
 % This version by Jesus Briales, 3 May 2016
 
 classdef blkmat
-  %BLKMAT Summary of this class goes here
-  %   Detailed explanation goes here
   
   properties
     rsizes, csizes
-    rdict, cdict
+    rdict,  cdict
     storage
   end
   properties
     % Flags, set once at the constructor and never modified again
-    row_regular, col_regular
-  end
-  properties
-    isLabeled
+    is_rowRegular, is_colRegular
+    is_labeled
   end
   
   methods   
@@ -96,8 +92,8 @@ classdef blkmat
       if nargin == 0 % default constructor
         this.rsizes = [];
         this.csizes = [];
-        this.row_regular = 0;
-        this.col_regular = 0;
+        this.is_rowRegular = 0;
+        this.is_colRegular = 0;
         this.storage = [];
         
       elseif isa(varargin{1}, 'blkmat')
@@ -113,11 +109,11 @@ classdef blkmat
       else
         % Set row structure
         [this.rsizes,this.rdict] = setupStructure( varargin{[1 3]} );
-        this.row_regular = (numel(unique(this.rsizes))==1);
+        this.is_rowRegular = (numel(unique(this.rsizes))==1);
         
         % Set col structure
         [this.csizes,this.cdict] = setupStructure( varargin{[2 4]} );
-        this.col_regular = (numel(unique(this.csizes))==1);
+        this.is_colRegular = (numel(unique(this.csizes))==1);
         
         if nargin == 5
           % There is extra argument giving content initialization
@@ -128,7 +124,7 @@ classdef blkmat
       end
       
       % Set flag for labelled blkmat
-      this.isLabeled = ~isempty(fieldnames(this.rdict)) || ...
+      this.is_labeled = ~isempty(fieldnames(this.rdict)) || ...
                         ~isempty(fieldnames(this.cdict));
       
       % Initialize storage field
@@ -205,7 +201,7 @@ classdef blkmat
     function this = subsasgn(this,S,B)
       
       if length(S)==1 % A(i,j)
-        if this.isLabeled
+        if this.is_labeled
           S = map_lab2idx( this, S );
         end
         switch S.type
@@ -215,7 +211,7 @@ classdef blkmat
             % If we reference a non-existent cell, expand the array if regular
             r = max(rows);
             if r > nrows(this)
-              if this.row_regular
+              if this.is_rowRegular
                 this.rsizes = repmat(this.rsizes(1), 1, r);
               else
                 error('can''t expand row irregular blockmatrix');
@@ -223,7 +219,7 @@ classdef blkmat
             end
             c = max(cols);
             if c > ncols(this)
-              if this.col_regular
+              if this.is_colRegular
                 this.csizes = repmat(this.csizes(1), 1, c);
               else
                 error('can''t expand column irregular blockmatrix');
@@ -245,7 +241,7 @@ classdef blkmat
             
       if length(S)==1 % A(i,j)
         
-        if this.isLabeled % TODO: Change by isLabeled flag
+        if this.is_labeled % TODO: Change by is_labeled flag
           S = map_lab2idx( this, S );
         end
         
@@ -415,7 +411,7 @@ classdef blkmat
       temp = A.storage \ B.storage;
       
       % TODO: Create according to regular block-matrix or not
-      if ~obj.row_regular && ~obj.col_regular
+      if ~obj.is_rowRegular && ~obj.is_colRegular
         C = blkmat([],[],rowsizes(obj),colsizes(obj),temp);
       else
         error('TODO yet');
@@ -448,7 +444,7 @@ classdef blkmat
       % NOTE: regular blkmat should be asserted externally
       s = [rowsize(A),colsize(A)];
     end
-    function isit = isregular(A), isit = A.row_regular && A.col_regular; end
+    function isit = isregular(A), isit = A.is_rowRegular && A.is_colRegular; end
     function l = labels(this)
       l = {cell2mat(fieldnames(this.rdict)),...
            cell2mat(fieldnames(this.cdict))};
@@ -474,13 +470,13 @@ classdef blkmat
     
     function disp(A)
       % To display the matrix content, use plain method
-      if A.row_regular && A.col_regular
+      if A.is_rowRegular && A.is_colRegular
         s = sprintf('%dx%d %s-matrix of %dx%d blocks',...
           nrows(A), ncols(A), class(A.storage), rowsize(A), colsize(A));
-      elseif A.row_regular && ~A.col_regular
+      elseif A.is_rowRegular && ~A.is_colRegular
         s = sprintf('%dx- %s-matrix of %d x [%s] blocks',...
           nrows(A), class(A.storage), rowsize(A), num2str(colsizes(A)));
-      elseif ~A.row_regular && A.col_regular
+      elseif ~A.is_rowRegular && A.is_colRegular
         s = sprintf('-x%d %s-matrix of [%s] x %d blocks',...
           ncols(A), class(A.storage), num2str(rowsizes(A)), colsize(A));
       else
