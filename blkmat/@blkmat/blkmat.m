@@ -334,11 +334,23 @@ classdef blkmat
       end
     end
     
+    % Unary operators
+    function B = uminus(A)
+      B = A;
+      B.storage = -A.storage;
+    end
+    function At = ctranspose(A)
+      At = blkmat([],[],colsizes(A),rowsizes(A),A.storage');
+    end
+    function t = trace(A)
+      t = trace(A.storage);
+    end
+    
+    % Binary operators
     function C = plus(A,B)
       
       % Force blkmat matrices (in case one of the inputs is numeric)
-      A = blkmat(A);
-      B = blkmat(B);
+      A = blkmat(A); B = blkmat(B);
       
       % Check consistent block dimensions
       assert( all(rowsizes(A)==rowsizes(B)) && ...
@@ -354,8 +366,7 @@ classdef blkmat
     function C = minus(A,B)
       
       % Force blkmat matrices (in case one of the inputs is numeric)
-      A = blkmat(A);
-      B = blkmat(B);
+      A = blkmat(A); B = blkmat(B);
       
       % Check consistent block dimensions
       assert( all(rowsizes(A)==rowsizes(B)) && ...
@@ -366,26 +377,17 @@ classdef blkmat
       
       % Store result in blkmat with the same structure
       C = blkmat([],[],rowsizes(A),colsizes(A),temp);
-    end
-    
-    function B = uminus(A)
-      B = A;
-      B.storage = -A.storage;
-    end      
+    end  
     
     function C = mtimes(A,B)
       % C = mtimes(A,B)
-      % Blk-matrix product
       % Some semantics in the product with block matrix:
-      % - The block-matrix should be regular?
-      % - The block-wise product must be consistent
       % - Product with a scalar simply scales all the content
       % - If the result is a single block (scalar or matrix)
       %   return raw Matlab matrix
       
       % Force blkmat matrices (in case one of the inputs is numeric)
-      A = blkmat(A);
-      B = blkmat(B);
+      A = blkmat(A); B = blkmat(B);
       
       % Extract plain data
       matA = plain(A);
@@ -395,31 +397,68 @@ classdef blkmat
       % - A and B blkmat, with compatible size and blksize
       % - A or B scalar
       assert( numel(matA)==1 || numel(matB)==1 || ...
-              (ncols(A)==nrows(B) && colsize(A)==rowsize(B)) )
+              all(colsizes(A)==rowsizes(B)) )
       
       temp = matA*matB;
       
-      % Build the corresponding blkmat for the output
-      if numel(matA)==1
-        nr=nrows(B); nc=ncols(B); rs=rowsize(B); cs=colsize(B);
-      elseif numel(matB)==1
-        nr=nrows(A); nc=ncols(A); rs=rowsize(A); cs=colsize(A);
-      else
-        nr=nrows(A); nc=ncols(B); rs=rowsize(A); cs=colsize(B);
-      end
-      C = blkmat(nr,nc,rs,cs,temp);
+      % Store result in blkmat with the resulting structure
+      C = blkmat([],[],rowsizes(A),colsizes(B),temp);
       if numel(C) == 1
-        % Scalar result, return simple number
+        % Result is a single block, return as simpler numeric matrix
         C = plain(C);
       end
     end
-       
-    function At = ctranspose(A)
-      At = blkmat([],[],colsizes(A),rowsizes(A),A.storage');
+    
+    function C = mldivide(A,B)
+      % C = mldivide(A,B)
+      
+      % Force blkmat matrices (in case one of the inputs is numeric)
+      A = blkmat(A); B = blkmat(B);
+      
+      % Extract plain data
+      matA = plain(A);
+      matB = plain(B);
+      
+      % Valid cases are:
+      % - A and B blkmat, with compatible size and blksize
+      % - A or B scalar
+      assert( numel(matA)==1 || numel(matB)==1 || ...
+              all(colsizes(A)==rowsizes(B)) )
+      
+      temp = matA\matB;
+      
+      % Store result in blkmat with the resulting structure
+      C = blkmat([],[],rowsizes(A),colsizes(B),temp);
+      if numel(C) == 1
+        % Result is a single block, return as simpler numeric matrix
+        C = plain(C);
+      end
     end
     
-    function t = trace(A)
-      t = trace(A.storage);
+    function C = mrdivide(A,B)
+      % C = mldivide(A,B)
+      
+      % Force blkmat matrices (in case one of the inputs is numeric)
+      A = blkmat(A); B = blkmat(B);
+      
+      % Extract plain data
+      matA = plain(A);
+      matB = plain(B);
+      
+      % Valid cases are:
+      % - A and B blkmat, with compatible size and blksize
+      % - A or B scalar
+      assert( numel(matA)==1 || numel(matB)==1 || ...
+              all(colsizes(A)==rowsizes(B)) )
+      
+      temp = matA/matB;
+      
+      % Store result in blkmat with the resulting structure
+      C = blkmat([],[],rowsizes(A),colsizes(B),temp);
+      if numel(C) == 1
+        % Result is a single block, return as simpler numeric matrix
+        C = plain(C);
+      end
     end
     
     function r = rowsize(A),  r = A.rsizes(1); end
