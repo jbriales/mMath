@@ -107,18 +107,31 @@ classdef blkmat
         end
         
       else
-        % Set row structure
-        [this.rsizes,this.rdict] = setupStructure( varargin{[1 3]} );
-        this.is_rowRegular = (numel(unique(this.rsizes))==1);
+        if nargin <= 3
+          % The symmetric case, same dims and blk-sizes for rows and columns
+          dims = varargin{1}; bsizes = varargin{2};
+          [this.rsizes,this.rdict] = setupStructure( dims,bsizes );
+          [this.csizes,this.cdict] = setupStructure( dims,bsizes );
+        else
+          % Set row structure
+          rdims = varargin{1}; rsizes = varargin{3};
+          [this.rsizes,this.rdict] = setupStructure( rdims,rsizes );
+          % Set col structure
+          cdims = varargin{2}; csizes = varargin{4};
+          [this.csizes,this.cdict] = setupStructure( cdims,csizes );        
+        end
         
-        % Set col structure
-        [this.csizes,this.cdict] = setupStructure( varargin{[2 4]} );
+        % Set regularity flags
+        this.is_rowRegular = (numel(unique(this.rsizes))==1);
         this.is_colRegular = (numel(unique(this.csizes))==1);
         
-        if nargin == 5
-          % There is extra argument giving content initialization
-          M = varargin{5};
+        % The extra argument for initialization can be the 3rd or 5th,
+        % so it is the last if there is an odd number of arguments
+        if mod(nargin,2)
+          % If odd, there is extra argument giving content initialization
+          M = varargin{end};
         else
+          % If even, no initialization, set to 0
           M = 0;
         end
       end
