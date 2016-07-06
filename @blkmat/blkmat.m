@@ -57,6 +57,10 @@
 %    x x   x
 %    x x   x
 %    x x   x
+%
+% Notes:
+% - Once the blkmat object has been built, its structure is fixed.
+%   Only the content can be modified via subscripted assignment.
 
 % Inspired by Kevin Murphy (www.cs.berkeley.edu/~murphyk), 21 October 1999
 % This version by Jesus Briales, 3 May 2016
@@ -67,12 +71,12 @@ classdef blkmat
   
   properties
     rsizes, csizes
-    row_regular, col_regular
+    rdict, cdict
     storage
   end
-  
-  properties (Constant) % For label-based indexing only, NO CONSTANT
-    dict = struct('Q',1,'T',2);
+  properties
+    % Flags, set once at the constructor and never modified again
+    row_regular, col_regular
   end
   properties (Dependent)
     isLabeled
@@ -82,7 +86,16 @@ classdef blkmat
   end
   
   methods   
-    function this = blkmat(nrows, ncols, rsize, csize, M)
+    function this = blkmat( varargin )
+      % (nrows, ncols, rsize, csize, M)
+      % blkmat
+      % Possible inputs are:
+      % - NROWS, NCOLS, RSIZE, CSIZE
+      % - [], [], RSIZES, CSIZES
+%       keyboard
+      
+      this.rdict = struct();
+      this.cdict = struct();
       if nargin == 0 % default constructor
         this.rsizes = [];
         this.csizes = [];
@@ -90,47 +103,43 @@ classdef blkmat
         this.col_regular = 0;
         this.storage = [];
         
-      elseif isa(nrows, 'blkmat')
-        this = nrows; % identity function
+      elseif isa(varargin{1}, 'blkmat')
+        % If 1st argument is blkmat, this is a copy constructor
+        this = varargin{1};
+        if nargin == 2
+          % There is extra argument giving content initialization
+          M = varargin{2};
+        else
+          M = 0; % Initialize to zero
+        end
         
       else
-        if isempty(nrows)
-          this.rsizes = rsize;
-        else
-          this.rsizes = repmat(rsize, 1, nrows);
-        end
-        if numel(unique(this.rsizes))==1
-          this.row_regular = 1;
-        else
-          this.row_regular = 0;
-        end
+        % Set row structure
+        [this.rsizes,this.rdict] = setupStructure( varargin{[1 3]} );
+        this.row_regular = (numel(unique(this.rsizes))==1);
         
-        if isempty(ncols)
-          this.csizes = csize;
-        else
-          this.csizes = repmat(csize, 1, ncols);
-        end
-        if numel(unique(this.csizes))==1
-          this.col_regular = 1;
-        else
-          this.col_regular = 0;
-        end
+        % Set col structure
+        [this.csizes,this.cdict] = setupStructure( varargin{[2 4]} );
+        this.col_regular = (numel(unique(this.csizes))==1);
         
-        if nargin < 5
-          this.storage = zeros(sum(this.rsizes), sum(this.csizes));
+        if nargin == 5
+          % There is extra argument giving content initialization
+          M = varargin{5};
         else
-          % Check initialization is scalar or dimensions are coherent
-          assert(isscalar(M) || all(size(M)==size(this)),...
-            'Wrong dimensions of the initialization matrix')
-          if isscalar(M)
-            this.storage = M*ones(size(this));
-          else
-            this.storage = M;
-          end
+          M = 0;
         end
       end
+      
+      % Initialize storage field
+      assert(isscalar(M) || all(size(M)==size(this)),...
+        'blkmat: Wrong dim of the initialization matrix')
+      if isscalar(M)
+        this.storage = M*ones(size(this));
+      else
+        this.storage = M;
+      end
     end
-    
+       
     % Set the number of arguments in subscript operations
     % Avoid conflicts with (overloaded) numel method
     function n = numArgumentsFromSubscript(this,~,callingContext)
@@ -414,6 +423,10 @@ classdef blkmat
       s = [rowsize(A),colsize(A)];
     end
     function isit = isregular(A), isit = A.row_regular && A.col_regular; end
+    function l = labels(this)
+      l = {cell2mat(fieldnames(this.rdict)),...
+           cell2mat(fieldnames(this.cdict))};
+    end
     
     function M = plain(this), M = this.storage; end
 
@@ -464,4 +477,31 @@ classdef blkmat
     
   end
 
+end
+
+function [sizes,dict] = setupStructure( arg1, sizes )
+% Preallocate dictionary
+dict = struct();
+
+if ischar(arg1)
+  rtags = arg1;
+  nblks = numel(rtags);
+  for i = 1:nblks
+    l = rtags(i);
+    dict.(l) = i;
+  end
+else
+  nblks = arg1;
+  if isempty(nblks)
+    % If empty nblks, this is take from dimension of rsizes
+    nblks = numel(sizes);
+  end
+end
+if isscalar(sizes)
+  % If we are given a single block-size, repeat this
+  sizes = repmat(sizes, 1, nblks);
+end
+assert(nblks==numel(sizes),...
+  'Number of blocks (%d) and list of block dims (%d) should be consistent',...
+  nblks, numel(sizes));
 end
