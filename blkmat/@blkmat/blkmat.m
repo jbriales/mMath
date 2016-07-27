@@ -377,7 +377,7 @@ classdef blkmat
       [rpat,cpat] = sumPattern(A,B);
       
       % Difference of internal storages
-      temp = plain(A) + plain(B);
+      temp = plain(A) - plain(B);
       
       % Store result in blkmat with the same structure
       C = blkmat(rpat,cpat,temp);
