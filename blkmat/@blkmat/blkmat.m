@@ -208,6 +208,13 @@ classdef blkmat
           if mod(nargin,2)
             % If odd, there is extra argument giving content initialization
             M = varargin{end};
+            % If the input is already blkmat
+            if isa(M,'blkmat')
+              % Assert the blk dimensions are the same
+              assert( all(rowsizes(this)==rowsizes(M)) && ...
+                      all(colsizes(this)==colsizes(M)) );
+              M = plain(M);
+            end
           else
             % If even, no initialization, set to 0
             M = 0;
