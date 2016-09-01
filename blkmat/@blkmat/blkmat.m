@@ -531,6 +531,10 @@ classdef blkmat
       % TODO: Check function exists
       % TODO: Should implement spyblk in the blkpattern class
       plt.spyblk(rowsizes(A),colsizes(A));
+      
+      % Adjust borders
+      a = axis;
+      axis(a + [+0.5 -0.5 +0.5 -0.5]);
     end
     
     function out = full(A)
