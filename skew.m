@@ -3,7 +3,7 @@ function M = skew(v)
 % Creates a skew symmetrix matrix from a 3-vector as
 %   M = [ 0  -v3 +v2
 %        +v3  0  -v1
-%        -v2  0   0 ]
+%        -v2 +v1  0 ]
 % Some overloaded cases are:
 % - v is a cell (list) of three elements (with consistent dimensions)
 % - v is a 3-block-vector (regular)
