@@ -1,5 +1,5 @@
 % Setup file for the Mmath library
 % Call this 
 addpath(pwd)
-addpath('blkmat')
+addpath(fullfile(pwd,'blkmat'))
 
