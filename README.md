@@ -1,5 +1,11 @@
-# Mmath toolbox
-Collection of Matlab math-related functions for improved readability and compactness.
+# mMath toolbox
+Collection of Matlab math-related (mainly algebraic) functions for improved readability and compactness.
+
+WARNING: This repository is mainly for personal use, and some notation could change in the API.
+
+## An overview of functions
+
+NOTE: This list is incomplete yet
 
 - `R = project_rotation( M )`
   Find rotation `R=U*S*V'` closest to `M=U*D*V'` minimizing the chordal distance.
