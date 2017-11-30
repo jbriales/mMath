@@ -4,6 +4,8 @@ function X = avecs(x)
 % 
 % Scaled half vectorization so that tr(ST)=vecs(S)'*vecs(T)
 % Taken from "Schäcke, K. (2013). On the kronecker product."
+% 
+% See also: SymSpace(...).matTr
 
 k = numel(x);
 s = -0.5 + sqrt(0.25+2*k);

@@ -1,6 +1,8 @@
 function X = avech(x)
 % X = avech(x)
 % Inverse of symmetric (half) vectorization for symmetric matrices
+% 
+% See also: SymSpace(...).mat
 
 k = numel(x);
 s = -0.5 + sqrt(0.25+2*k);
