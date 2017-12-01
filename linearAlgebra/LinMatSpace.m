@@ -60,6 +60,10 @@ classdef LinMatSpace
       subscripts = this.m_ij(k,:);
       c_ij = num2cell( subscripts );
       varargout = c_ij;
+      if nargout == 0
+        % show all data
+        varargout = { cell2mat(varargout) };
+      end
     end
     function k = sub2ind(this, varargin)
       k = this.m_k(varargin{:});

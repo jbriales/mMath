@@ -27,6 +27,10 @@ classdef ArraySpace < LinMatSpace
     function [varargout] = ind2sub(this, k)
       varargout = cell(1,numel(this.Mdim));
       [varargout{:}] = ind2sub( this.Mdim, k );
+      if nargout == 0
+        % show all data
+        varargout = { cell2mat(varargout) };
+      end
     end
     function k = sub2ind(this, varargin)
       k = sub2ind( this.Mdim, varargin{:} );
