@@ -16,6 +16,7 @@ assert(numel(v)==3)
 switch class(v)
   case 'cell'
     % The input is a 3-element cell list
+    % TODO: Implement blkskew instead?
     s  = size(v{1});
     Os = zeros(s);
     M  = [ Os   -v{3}  v{2};
