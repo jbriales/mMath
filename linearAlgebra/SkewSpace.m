@@ -4,17 +4,32 @@ classdef SkewSpace < LinMatSpace
   %   
   % See also LinMatSpace, SymSpace.
   
-  properties( Dependent )
-    basis
-  end
-  
   methods 
     function this = SkewSpace( d )
       assert(numel(d)==1)
       this = this@LinMatSpace( [d,d] );
       
       % Compute corresponding dimension of vector space
-      this.vdim = nchoosek(d-1,2);
+      this.vdim = nchoosek(d,2);
+      
+      % Populate basis and index-correpondence tables
+      % for Sym(d) vector space
+      d = unique(this.dimMat);
+      k=0;
+      for i=1:d % traverse row-wise (this is symmetric!)
+        for j=i+1:d
+          k = k+1;
+          % Get basis matrix element
+          E_ij = skewPart(sparse(i,j,1,d,d,2));
+%           c_E{k} = E_ij;
+          this.basis{k} = full( E_ij );
+          % Store subscripts
+          this.m_ij(k,:) = [i,j];
+          % Store linear index
+          this.m_k(i,j) = k;
+          this.m_k(j,i) = k;
+        end
+      end
     end
     
     function v = vec(this, M)     
@@ -30,20 +45,6 @@ classdef SkewSpace < LinMatSpace
       error('TODO: Complete similarly to SymSpace')
     end
     
-    function c_E = get.basis( this )
-      % Generate complete list of basis vectors for Skew(d) vector space
-      d = unique(this.dimMat);
-      c_E = cell(1,this.dimVec);
-      k=0;
-      for i=1:d
-        for j=i+1:d
-          k = k+1;
-          E_ij = skewPart(sparse(i,j,1,d,d,2));
-%           c_E{k} = E_ij;
-          c_E{k} = full( E_ij );
-        end
-      end
-    end
   end
   
 end
