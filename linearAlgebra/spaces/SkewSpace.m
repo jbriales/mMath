@@ -20,7 +20,7 @@ classdef SkewSpace < LinMatSpace
         for j=i+1:d
           k = k+1;
           % Get basis matrix element
-          E_ij = skewPart(sparse(i,j,1,d,d,2));
+          E_ij = this.canvec(i,j);
 %           c_E{k} = E_ij;
           this.basis{k} = full( E_ij );
           % Store subscripts
@@ -30,6 +30,12 @@ classdef SkewSpace < LinMatSpace
           this.m_k(j,i) = k;
         end
       end
+    end
+    
+    function E_ij = canvec(this, varargin)
+      % Note: This function is SKEW-symmetric!
+      %       canvec(i,j) = -canvec(j,i)
+      E_ij = skewPart(sparse(varargin{:},1,this.Mdim(1),this.Mdim(2),2));
     end
     
     function v = vec(this, M)     

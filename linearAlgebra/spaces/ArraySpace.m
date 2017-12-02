@@ -14,6 +14,12 @@ classdef ArraySpace < LinMatSpace
       % Set dimension of the vector space
       this.vdim = prod(dims);
     end
+    
+    function E_ijk = canvec(this, varargin)
+      E_ijk = zeros(this.Mdim);
+      E_ijk(varargin{:}) = 1;
+    end    
+    
     function v = vec(this, M)
       % Vectorize column-wise
       v = M(:);      

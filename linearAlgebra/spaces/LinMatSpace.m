@@ -54,8 +54,9 @@ classdef LinMatSpace
       this.m_ij = zeros( this.dimVec, numel(dims) );
       this.m_k  = zeros( dims );
     end
-    
-    % Conversion methods between linear *ind*ex and array *sub*scripts
+       
+    %% Conversion methods between linear *ind*ex and array *sub*scripts
+    % Using the stored conversion tables
     function [varargout] = ind2sub(this, k)
       subscripts = this.m_ij(k,:);
       c_ij = num2cell( subscripts );
@@ -66,7 +67,11 @@ classdef LinMatSpace
       end
     end
     function k = sub2ind(this, varargin)
-      k = this.m_k(varargin{:});
+      % To handle multiple subscripts, first get set of linear indexes
+      klin = sub2ind(this.Mdim,varargin{:});
+      % Now translate into actual indexes in the current space,
+      % accessing custom k-map linearly.
+      k = this.m_k(klin);
     end
   end
   
@@ -75,6 +80,11 @@ classdef LinMatSpace
     v = vec(this, M)
     % Inverse of vectorization: build mat element from vector coordinates
     M = mat(this, v)
+    
+    % Canonical vector for a particular space, given by subscripts
+    % e.g. E_ij = canvec(i,j)
+    E = canvec(this, varargin)
+    
 %     d = dimVec( )
 %     D = dimMat( )
 %     c_M = basis( )
