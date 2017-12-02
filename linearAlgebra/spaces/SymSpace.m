@@ -2,7 +2,7 @@ classdef SymSpace < LinMatSpace
   %SymSpace
   %   Linear space of dxd symmetric matrices.
   %   
-  % See also LinMatSpace, ReSpace.
+  % See also LinMatSpace, SkewSpace.
    
   methods 
     function this = SymSpace( d )
@@ -21,8 +21,7 @@ classdef SymSpace < LinMatSpace
           k = k+1;
           % Get basis matrix element
           E_ij = this.canvec(i,j);
-%           c_E{k} = E_ij;
-          this.basis{k} = full( E_ij );
+          this.basis{k} = E_ij;
           % Store subscripts
           this.m_ij(k,:) = [i,j];
           % Store linear index
@@ -36,6 +35,7 @@ classdef SymSpace < LinMatSpace
       % Note: This function is symmetric
       %       canvec(i,j) = canvec(j,i)
       E_ij = symPart(sparse(varargin{:},1,this.Mdim(1),this.Mdim(2),2));
+      E_ij = full(E_ij);
     end
     
     function v = vec(this, M)     
