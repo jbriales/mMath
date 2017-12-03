@@ -15,7 +15,7 @@ classdef LinMatSpace
   %   - [i1,...,iN] = ind2sub(k)
   %   - k = sub2ind(i1,...,iN)
   %   
-  % See also 
+  % See also SymSpace, SkewSpace, ArraySpace.
   
   properties( GetAccess = protected )
     % user cannot see these properties (internal use only)
