@@ -24,5 +24,5 @@ b = vec(Z0);
 coeff = M \ b;
 
 % Check constraints on coefficients
-assert( all(coeff>0) )
-assert( sum(coeff)==1 )
+assert( all(coeff>0), 'coeff < 0' )
+assert( abs( sum(coeff)-1 ) < 1e-3, 'Sum(coeff)~=1' )
