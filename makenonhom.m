@@ -1,6 +1,7 @@
 function nonhom_x = makenonhom( x )
 % nonhom_x = makenonhom( x )
-% Returns the homogeneous vector (append 1 at the end of a column vector)
+% Returns the non-homogeneous vector: normalize dividing by the last
+% element in a column vector and drop it
 
 if any( abs(x(end,:)) < 1e-6 )
   warning('Hom component is zero');
